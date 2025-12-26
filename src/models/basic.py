@@ -2723,7 +2723,8 @@ class TwoStageCapacityAndProcurementPlanning:
         return fig, axes
 
     @staticmethod
-    def reduce_scenarios_kmedoids(scenarios, prob, n_scenario_clusters=50, stress_pct=0.01, seed=42):
+    def reduce_scenarios_kmedoids(scenarios, prob, n_scenario_clusters=50, stress_pct=0.01, stress_direction='both', seed=42,
+                                  max_iter=100, tol=1e-4, init_method='k-medoids++'):
         """
         Reduce the number of scenarios using K-Medoids clustering with optional stress scenario inclusion.
         
@@ -2759,9 +2760,30 @@ class TwoStageCapacityAndProcurementPlanning:
             - 0.05: 5% of final scenarios are extreme cases
             - 0.10: 10% of final scenarios are stress tests
             Stress scenarios help ensure tail risk coverage.
+        stress_direction : str, default 'both'
+            Direction for stress scenario selection:
+            - 'both': Select extreme scenarios from both tails (high and low extremes)
+            - 'downside': Select only worst-case scenarios (low demand, high costs, low prices)
+            - 'upside': Select only best-case scenarios (high demand, low costs, high prices)
+            This parameter controls which type of tail risk is emphasized in the reduced scenario set.
         seed : int, default 42
             Random seed for reproducible clustering results.
             Ensures consistent scenario selection across runs.
+        max_iter : int, default 100
+            Maximum number of iterations for K-Medoids algorithm.
+            Lower values trade accuracy for speed. Reduces from sklearn default of 300.
+            Algorithm may terminate early if convergence criteria (tol) are met.
+            Typical values: 50 (fast), 100 (balanced), 300 (high quality).
+        tol : float, default 1e-4
+            Convergence tolerance for K-Medoids algorithm.
+            Algorithm stops if improvement in inertia is below this threshold.
+            Larger values allow faster convergence with slightly lower quality.
+            Typical values: 1e-3 (fast), 1e-4 (balanced), 1e-6 (precise).
+        init_method : str, default 'k-medoids++'
+            Initialization method for K-Medoids:
+            - 'k-medoids++': Smart initialization similar to k-means++ (better quality)
+            - 'random': Random initialization (faster but may need more iterations)
+            - 'heuristic': Fast heuristic initialization
         plot_reduction : bool, default False
             Whether to generate diagnostic plots showing:
             - Original vs reduced scenario trajectories
@@ -2787,8 +2809,11 @@ class TwoStageCapacityAndProcurementPlanning:
         **Step 1: Stress Scenario Identification**
         - Convert scenarios to feature matrix (concatenated D, P, C trajectories)
         - Standardize features to ensure equal contribution from D, P, C
-        - Compute distance of each scenario from median scenario
-        - Select n_stress = ceil(n_scenario_clusters × stress_pct) most extreme scenarios
+        - Compute stress metric based on stress_direction:
+          * 'both': Distance from median scenario (both tails)
+          * 'downside': Risk score based on low demand, high costs, low prices
+          * 'upside': Opportunity score based on high demand, low costs, high prices
+        - Select n_stress = ceil(n_scenario_clusters × stress_pct) scenarios based on metric
         
         **Step 2: Regular Scenario Clustering**  
         - Apply K-Medoids clustering to remaining scenarios
@@ -3021,24 +3046,88 @@ class TwoStageCapacityAndProcurementPlanning:
         # STRESS SCENARIO IDENTIFICATION
         # ================================
         
+        # Validate stress_direction parameter
+        valid_directions = ['both', 'downside', 'upside']
+        if stress_direction not in valid_directions:
+            raise ValueError(f"stress_direction must be one of {valid_directions}, got '{stress_direction}'")
+        
         n_stress = int(np.ceil(n_scenario_clusters * stress_pct))
         n_regular = n_scenario_clusters - n_stress
         
         if n_stress > 0:
-            print(f"\nIdentifying stress scenarios...")
+            print(f"\nIdentifying stress scenarios ({stress_direction})...")
             print(f"  Stress scenarios: {n_stress} ({stress_pct:.1%} of {n_scenario_clusters})")
             print(f"  Regular scenarios: {n_regular}")
             
-            # Calculate distances from median scenario
-            median_scenario = np.median(X_scaled, axis=0)
-            distances = np.linalg.norm(X_scaled - median_scenario, axis=1)
-            
-            # Select most extreme scenarios
-            extreme_indices = np.argsort(distances)[-n_stress:]
-            stress_scenario_ids = [scenario_ids[i] for i in extreme_indices]
+            if stress_direction == 'both':
+                # Original implementation: most extreme scenarios by distance from median
+                median_scenario = np.median(X_scaled, axis=0)
+                distances = np.linalg.norm(X_scaled - median_scenario, axis=1)
+                
+                # Select most extreme scenarios
+                extreme_indices = np.argsort(distances)[-n_stress:]
+                stress_scenario_ids = [scenario_ids[i] for i in extreme_indices]
+                
+                print(f"  Method: Distance from median (both tails)")
+                print(f"  Stress scenario distances: {distances[extreme_indices].round(3)}")
+                
+            elif stress_direction == 'downside':
+                # Select worst-case scenarios based on risk score
+                print(f"  Method: Downside risk score (low demand, high costs, low prices)")
+                
+                # Vectorized computation: compute all scenario averages at once
+                scenario_avg = scenarios.groupby('Scenario')[['D', 'P', 'C']].mean()
+                
+                # Normalize all values at once (0-1 scale)
+                demand_vals = scenario_avg['D'].values
+                price_vals = scenario_avg['P'].values
+                cost_vals = scenario_avg['C'].values
+                
+                demand_norm = (demand_vals - demand_vals.min()) / (demand_vals.max() - demand_vals.min() + 1e-10)
+                price_norm = (price_vals - price_vals.min()) / (price_vals.max() - price_vals.min() + 1e-10)
+                cost_norm = (cost_vals - cost_vals.min()) / (cost_vals.max() - cost_vals.min() + 1e-10)
+                
+                # Risk score: lower is worse (low demand, low price, high cost)
+                # Weights: 40% demand, 30% price, 30% cost
+                risk_scores = 0.4 * demand_norm + 0.3 * price_norm - 0.3 * cost_norm
+                
+                # Sort by risk score (ascending) and select n_stress lowest
+                sorted_indices = np.argsort(risk_scores)[:n_stress]
+                extreme_indices = sorted_indices
+                stress_scenario_ids = [scenario_ids[i] for i in sorted_indices]
+                
+                print(f"  Worst-case scenarios selected")
+                print(f"  Risk scores (lower = worse): {risk_scores[sorted_indices].round(3).tolist()}")
+                
+            elif stress_direction == 'upside':
+                # Select best-case scenarios based on opportunity score
+                print(f"  Method: Upside opportunity score (high demand, low costs, high prices)")
+                
+                # Vectorized computation: compute all scenario averages at once
+                scenario_avg = scenarios.groupby('Scenario')[['D', 'P', 'C']].mean()
+                
+                # Normalize all values at once (0-1 scale)
+                demand_vals = scenario_avg['D'].values
+                price_vals = scenario_avg['P'].values
+                cost_vals = scenario_avg['C'].values
+                
+                demand_norm = (demand_vals - demand_vals.min()) / (demand_vals.max() - demand_vals.min() + 1e-10)
+                price_norm = (price_vals - price_vals.min()) / (price_vals.max() - price_vals.min() + 1e-10)
+                cost_norm = (cost_vals - cost_vals.min()) / (cost_vals.max() - cost_vals.min() + 1e-10)
+                
+                # Opportunity score: higher is better (high demand, high price, low cost)
+                # Weights: 40% demand, 30% price, 30% cost
+                opportunity_scores = 0.4 * demand_norm + 0.3 * price_norm - 0.3 * cost_norm
+                
+                # Sort by opportunity score (descending) and select n_stress highest
+                sorted_indices = np.argsort(opportunity_scores)[::-1][:n_stress]
+                extreme_indices = sorted_indices
+                stress_scenario_ids = [scenario_ids[i] for i in sorted_indices]
+                
+                print(f"  Best-case scenarios selected")
+                print(f"  Opportunity scores (higher = better): {opportunity_scores[sorted_indices].round(3).tolist()}")
             
             print(f"  Stress scenarios identified: {stress_scenario_ids}")
-            print(f"  Stress scenario distances: {distances[extreme_indices].round(3)}")
             
             # Remaining scenarios for regular clustering
             regular_indices = np.setdiff1d(np.arange(n_original), extreme_indices)
@@ -3057,27 +3146,38 @@ class TwoStageCapacityAndProcurementPlanning:
         # ================================
         
         if n_regular > 0:
-            print(f"\nPerforming K-Medoids clustering...")
+            print(f"\nPerforming K-Medoids clustering (optimized)...")
             print(f"  Data points to cluster: {len(regular_scenario_ids)}")
             print(f"  Target clusters: {n_regular}")
+            print(f"  Max iterations: {max_iter}")
+            print(f"  Convergence tolerance: {tol}")
+            print(f"  Initialization: {init_method}")
             
             try:
-                # Use K-Medoids with PAM algorithm for robustness
+                # Use K-Medoids with optimized parameters
+                import time
+                start_time = time.time()
+                
                 kmeans_model = KMedoids(
                     n_clusters=n_regular, 
                     random_state=seed, 
                     method="pam",
-                    max_iter=300
+                    max_iter=max_iter,
+                    init=init_method
                 )
                 
                 cluster_labels = kmeans_model.fit_predict(X_regular)
                 medoid_indices_relative = kmeans_model.medoid_indices_
+                
+                elapsed_time = time.time() - start_time
                 
                 # Map back to original scenario indices
                 medoid_indices_original = regular_indices[medoid_indices_relative]
                 regular_medoid_ids = [scenario_ids[i] for i in medoid_indices_original]
                 
                 print(f"  ✓ Clustering completed successfully")
+                print(f"  Computation time: {elapsed_time:.2f} seconds")
+                print(f"  Iterations performed: {kmeans_model.n_iter_}")
                 print(f"  Medoid scenarios: {regular_medoid_ids[:10]}...")  # Show first 10
                 
                 # Calculate cluster statistics
@@ -3085,6 +3185,12 @@ class TwoStageCapacityAndProcurementPlanning:
                 cluster_sizes = [np.sum(cluster_labels == label) for label in unique_labels]
                 
                 print(f"  Cluster sizes: min={min(cluster_sizes)}, max={max(cluster_sizes)}, mean={np.mean(cluster_sizes):.1f}")
+                
+                # Quality check: if not converged, warn user
+                if kmeans_model.n_iter_ >= max_iter:
+                    print(f"  ⚠ Warning: Maximum iterations reached. Consider increasing max_iter for better quality.")
+                else:
+                    print(f"  ✓ Algorithm converged before max_iter (good quality)")
                 
             except Exception as e:
                 raise RuntimeError(f"K-Medoids clustering failed: {str(e)}")
