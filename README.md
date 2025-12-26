@@ -120,42 +120,102 @@ cd steel-industry-stochastic-optimization
 pip install -r requirements.txt
 ```
 
+**⚠️ Troubleshooting Note**: The `scikit-learn-extra` package (used for K-medoids clustering) requires C++ build tools for compilation. If installation fails:
+
+**Windows users**:
+- Install [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+- Or install [Visual Studio](https://visualstudio.microsoft.com/downloads/) with "Desktop development with C++" workload
+
+**Linux users**:
+```bash
+sudo apt-get install build-essential  # Debian/Ubuntu
+sudo yum groupinstall "Development Tools"  # CentOS/RHEL
+```
+
+**macOS users**:
+```bash
+xcode-select --install
+```
+
+Alternatively, use a pre-built wheel or conda:
+```bash
+conda install -c conda-forge scikit-learn-extra
+```
+
 ### Quick Example
 
 ```python
 from src.models.basic import TwoStageCapacityAndProcurementPlanning
 
-# Load historical data from FRED
+# 1. Load historical data from FRED
 data = TwoStageCapacityAndProcurementPlanning.load_data_from_fredapi(
-    api_key='your_api_key_here'
+    api_key='your_api_key_here',
+    plot_data=True
 )
 
-# Fit VAR model
-log_ret = TwoStageCapacityAndProcurementPlanning.log_returns(data)
-var_model = TwoStageCapacityAndProcurementPlanning.fit_VAR_model(Δlog=log_ret)
-
-# Generate and reduce scenarios
-scenarios = TwoStageCapacityAndProcurementPlanning.generate_future_returns_scenarios(
-    var_model, simulation_start_date='2020-01-01', horizon=12, n_scenarios=1000
-)
-scenarios_reduced, prob_reduced = TwoStageCapacityAndProcurementPlanning.reduce_scenarios_kmedoids(
-    scenarios, prob=scenarios['prob'], n_scenario_clusters=50
+# 2. Create data subset for modeling
+data_subset = TwoStageCapacityAndProcurementPlanning.get_n_observations(
+    data,
+    n=180,
+    p=2,
+    last_observation='2019-12-01',
+    plot_data=True
 )
 
-# Optimize capacity and procurement
+# 3. Fit VAR model
+var_model = TwoStageCapacityAndProcurementPlanning.fit_VAR_model(
+    data=data_subset,
+    p=None,  # Automatic lag order selection
+    testing=['stability', 'corr'],
+    method='bic'
+)
+
+# 4. Generate scenarios
+scenario_returns, prob = TwoStageCapacityAndProcurementPlanning.generate_future_returns_scenarios(
+    var_model=var_model,
+    simulation_start_date=data_subset.index.max().strftime('%Y-%m'),
+    horizon=24,
+    n_scenarios=1000,
+    seed=42,
+    shock_distribution='t',
+    distribution_params={'df': 7}
+)
+
+# 5. Convert to price/quantity levels
+real_prices = {'P': 800, 'C': 400, 'D': 50000}  # €/ton for P,C and tons/month for D
+scenario_levels, info = TwoStageCapacityAndProcurementPlanning.reconstruct_levels_from_returns(
+    scenario_returns=scenario_returns,
+    historical_data=data_subset,
+    real_prices=real_prices
+)
+
+# 6. Reduce scenarios using K-medoids clustering
+scenarios_red, prob_red = TwoStageCapacityAndProcurementPlanning.reduce_scenarios_kmedoids(
+    scenarios=scenario_levels,
+    prob=prob,
+    n_scenario_clusters=50,
+    stress_pct=0.01,
+    stress_direction='downside'
+)
+
+# 7. Optimize capacity and procurement
 decisions = TwoStageCapacityAndProcurementPlanning.optimize_capacity_and_procurement(
-    scenarios=scenarios_reduced,
-    prob=prob_reduced,
-    alpha=1.5,
-    c_var=200.0,
-    c_cap_base=10.0,
-    c_cap_flex=25.0,
-    delta_base=5.0,
-    delta_spot=15.0,
-    pen_unmet=500.0,
-    gamma_cap=0.3,
-    gamma_scrap=0.8
+    scenarios=scenarios_red,
+    prob=prob_red,
+    alpha=1.01,           # Scrap consumption rate
+    c_var=250.0,          # Variable production cost (€/ton)
+    c_cap_base=10.0,      # Base capacity cost (€/ton/month)
+    c_cap_flex=30.0,      # Flexible capacity cost (€/ton/month)
+    delta_base=5.0,       # Base procurement premium (€/ton)
+    delta_spot=15.0,      # Spot procurement premium (€/ton)
+    pen_unmet=0.0,        # Unmet demand penalty (€/ton)
+    gamma_cap=0.3,        # Max flexible capacity (fraction of base)
+    gamma_scrap=0.8,      # Max spot procurement (fraction of base)
+    solver="highs"
 )
+
+print("Optimal Decisions:")
+print(decisions)
 ```
 
 For detailed documentation and advanced usage, see [docs/two_stage_model.md](docs/two_stage_model.md).
