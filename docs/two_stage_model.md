@@ -344,14 +344,17 @@ $$\begin{aligned}
 \end{aligned}$$
 
 **Decomposition**:
-- **Stage 1 Costs** (deterministic, paid upfront): $\sum_{t \in T} (c_{\text{cap,base}} \cdot \text{Cap}_{\text{base},t} + \delta_{\text{base}} \cdot Q_{\text{base},t})$
-- **Expected Stage 2 Profit** (stochastic, scenario-dependent): 
-  - Revenue from sales: $P_{t,s} \cdot y_{t,s}$
-  - Scrap costs: $C_{t,s} \cdot (q_{\text{base},t,s} + q_{\text{spot},t,s})$
-  - Variable production costs: $c_{\text{var}} \cdot x_{t,s}$
-  - Flexible capacity costs: $c_{\text{cap,flex}} \cdot \text{Cap}_{\text{flex},t,s}$
-  - Spot procurement premium: $\delta_{\text{spot}} \cdot q_{\text{spot},t,s}$
-  - Unmet demand penalty: $\text{pen}_{\text{unmet}} \cdot u_{t,s}$
+
+**Stage 1 Costs** (deterministic, paid upfront):
+$$\sum_{t \in T} \left(c_{\text{cap,base}} \cdot \text{Cap}_{\text{base},t} + \delta_{\text{base}} \cdot Q_{\text{base},t}\right)$$
+
+**Expected Stage 2 Profit** (stochastic, scenario-dependent):
+- Revenue from sales: $P_{t,s} \cdot y_{t,s}$
+- Scrap costs: $C_{t,s} \cdot (q_{\text{base},t,s} + q_{\text{spot},t,s})$
+- Variable production costs: $c_{\text{var}} \cdot x_{t,s}$
+- Flexible capacity costs: $c_{\text{cap,flex}} \cdot \text{Cap}_{\text{flex},t,s}$
+- Spot procurement premium: $\delta_{\text{spot}} \cdot q_{\text{spot},t,s}$
+- Unmet demand penalty: $\text{pen}_{\text{unmet}} \cdot u_{t,s}$
 
 #### Constraints
 
