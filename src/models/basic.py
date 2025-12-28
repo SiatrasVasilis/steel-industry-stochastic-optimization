@@ -2,8 +2,36 @@ from fredapi import Fred
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import logging
 
 class TwoStageCapacityAndProcurementPlanning:
+    
+    @staticmethod
+    def _setup_logger(log_level="INFO"):
+        """
+        Internal helper to set up a logger with consistent formatting.
+        
+        Parameters
+        ----------
+        log_level : str
+            Logging level: DEBUG, INFO, WARNING, or ERROR
+            
+        Returns
+        -------
+        logger : logging.Logger
+            Configured logger instance
+        """
+        logger = logging.getLogger(__name__)
+        logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+        logger.handlers = []  # Clear existing handlers
+        
+        ch = logging.StreamHandler()
+        ch.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+        formatter = logging.Formatter('%(levelname)s: %(message)s')
+        ch.setFormatter(formatter)
+        logger.addHandler(ch)
+        
+        return logger
     
     @staticmethod
     def load_data_from_fredapi(api_key, steel_price_identifier='WPU101704', scrap_price_identifier='WPU1012', steel_demand_identifier='IPG3311A2S', plot_data=True):
@@ -233,7 +261,7 @@ class TwoStageCapacityAndProcurementPlanning:
         return data_subset
     
     @staticmethod
-    def log_returns(data, plot_data=False, print_stats=False):
+    def log_returns(data, plot_data=False, print_stats=False, log_level="INFO"):
         """
         Compute log returns (delta log) for time series data suitable for VAR modeling.
         
@@ -352,13 +380,14 @@ class TwoStageCapacityAndProcurementPlanning:
         # Heavier tails (kurtosis > 3) may be observed due to economic shocks of 2008 and COVID-19 in 2020
         
         if print_stats:
-            print("Log-Returns Statistics:")
-            print(Δlog.agg(["mean", "std", "skew", "kurtosis"]))
+            logger = TwoStageCapacityAndProcurementPlanning._setup_logger(log_level)
+            logger.info("Log-Returns Statistics:")
+            logger.info("\n" + str(Δlog.agg(["mean", "std", "skew", "kurtosis"])))
     
         return Δlog
     
     @staticmethod
-    def VAR_order_selection(Δlog, maxlags=12, method='bic'):
+    def VAR_order_selection(Δlog, maxlags=12, method='bic', log_level="INFO"):
         """
         Automatically select optimal lag order for VAR model estimation using information criteria.
         
@@ -521,6 +550,9 @@ class TwoStageCapacityAndProcurementPlanning:
         """
         from statsmodels.tsa.api import VAR
     
+        # Set up logger
+        logger = TwoStageCapacityAndProcurementPlanning._setup_logger(log_level)
+    
         # Initialize VAR model
         model = VAR(Δlog)
         
@@ -530,61 +562,61 @@ class TwoStageCapacityAndProcurementPlanning:
         # Extract the selected lag order using specified method
         p = lag_sel.selected_orders[method]
         
-        # Print comprehensive summary for transparency and validation
-        print("="*60)
-        print("VAR LAG ORDER SELECTION RESULTS")
-        print("="*60)
-        print(f"Method used: {method.upper()}")
-        print(f"Maximum lags tested: {maxlags}")
-        print(f"Selected lag order: {p}")
-        print("\nFull Selection Summary:")
-        print(lag_sel.summary())
+        # Log comprehensive summary for transparency and validation
+        logger.info("="*60)
+        logger.info("VAR LAG ORDER SELECTION RESULTS")
+        logger.info("="*60)
+        logger.info(f"Method used: {method.upper()}")
+        logger.info(f"Maximum lags tested: {maxlags}")
+        logger.info(f"Selected lag order: {p}")
+        logger.debug("\nFull Selection Summary:")
+        logger.debug("\n" + str(lag_sel.summary()))
         
-        # Print interpretation guidance
-        print("\n" + "-"*60)
-        print("INTERPRETATION GUIDANCE:")
-        print("-"*60)
+        # Log interpretation guidance
+        logger.debug("\n" + "-"*60)
+        logger.debug("INTERPRETATION GUIDANCE:")
+        logger.debug("-"*60)
         if p <= 2:
-            print(f"✓ Selected lag order (p={p}) is typical for steel markets")
-            print("  - Indicates relatively quick adjustment to market shocks")
-            print("  - Consistent with efficient industrial commodity markets")
+            logger.debug(f"✓ Selected lag order (p={p}) is typical for steel markets")
+            logger.debug("  - Indicates relatively quick adjustment to market shocks")
+            logger.debug("  - Consistent with efficient industrial commodity markets")
         elif p <= 4:
-            print(f"• Selected lag order (p={p}) suggests moderate persistence")
-            print("  - May reflect gradual adjustment in production planning")
-            print("  - Consider seasonal or cyclical factors")
+            logger.debug(f"• Selected lag order (p={p}) suggests moderate persistence")
+            logger.debug("  - May reflect gradual adjustment in production planning")
+            logger.debug("  - Consider seasonal or cyclical factors")
         else:
-            print(f"⚠ Selected lag order (p={p}) is relatively high")
-            print("  - Check for structural breaks or missing variables")
-            print("  - Verify economic interpretation makes sense")
-            print("  - Consider alternative model specifications")
+            logger.warning(f"⚠ Selected lag order (p={p}) is relatively high")
+            logger.warning("  - Check for structural breaks or missing variables")
+            logger.warning("  - Verify economic interpretation makes sense")
+            logger.warning("  - Consider alternative model specifications")
         
         # Show comparison of different criteria
-        print(f"\nCriteria Comparison:")
+        logger.debug(f"\nCriteria Comparison:")
         for criterion in ['aic', 'bic', 'hqic', 'fpe']:
             if criterion in lag_sel.selected_orders:
                 selected_p = lag_sel.selected_orders[criterion]
                 marker = "→" if criterion == method else " "
-                print(f"  {marker} {criterion.upper()}: p = {selected_p}")
+                logger.debug(f"  {marker} {criterion.upper()}: p = {selected_p}")
         
         # Data usage summary
         effective_observations = len(Δlog) - p
-        print(f"\nData Usage Summary:")
-        print(f"  Total observations: {len(Δlog)}")
-        print(f"  Lost to lags: {p}")
-        print(f"  Effective sample: {effective_observations}")
+        logger.debug(f"\nData Usage Summary:")
+        logger.debug(f"  Total observations: {len(Δlog)}")
+        logger.debug(f"  Lost to lags: {p}")
+        logger.debug(f"  Effective sample: {effective_observations}")
         
         if effective_observations < 50:
-            print("  ⚠ Warning: Small effective sample size may affect reliability")
+            logger.warning("  ⚠ Warning: Small effective sample size may affect reliability")
         elif effective_observations < 100:
-            print("  • Note: Moderate sample size - results should be robust")
+            logger.debug("  • Note: Moderate sample size - results should be robust")
         else:
-            print("  ✓ Good: Large sample provides reliable lag selection")
+            logger.debug("  ✓ Good: Large sample provides reliable lag selection")
         
         return lag_sel, p
     
     @staticmethod
     def fit_VAR_model(data=None, Δlog=None, p=None, maxlags=12, method='bic', 
-                      testing=['corr', 'irf', 'sim_stats'], print_warnings=True):
+                      testing=['corr', 'irf', 'sim_stats'], print_warnings=True, log_level="INFO"):
         """
         Fit a Vector Autoregression (VAR) model to time series data with comprehensive validation.
         
@@ -3361,13 +3393,15 @@ class TwoStageCapacityAndProcurementPlanning:
     @staticmethod
     def optimize_capacity_and_procurement(scenarios, prob, alpha, c_var, c_cap_base, c_cap_flex, 
                                         delta_base, delta_spot, pen_unmet, gamma_cap, gamma_scrap, 
-                                        solver="highs"):
+                                        solver="highs", return_full_results=False, 
+                                        risk_aversion=0.0, cvar_alpha=0.05, log_level="INFO"):
         """
         Build and solve the two-stage stochastic programming model for capacity and procurement optimization.
         
-        This method implements a two-stage stochastic programming model where:
+        This method implements a two-stage stochastic programming model with optional CVaR risk management where:
         - Stage 1: Make capacity and procurement decisions before uncertainty is revealed
         - Stage 2: Make operational decisions (production, sales) after scenarios are realized
+        - Risk Management: Optional CVaR term balances expected profit with downside risk protection
         
         The model maximizes expected profit while managing uncertainty in demand, prices, and costs
         through flexible capacity and procurement options with recourse bounds.
@@ -3429,25 +3463,90 @@ class TwoStageCapacityAndProcurementPlanning:
             - "gurobi": Commercial solver (requires license)
             - "cplex": Commercial solver (requires license)
             - "glpk": Open-source LP solver
+        return_full_results : bool, default False
+            If True, returns a dictionary with comprehensive results including:
+            - Stage 1 decisions (Cap_base, Q_base)
+            - Stage 2 recourse decisions by scenario
+            - Expected profit and profit by scenario
+            - Risk metrics
+            If False, returns only the Stage 1 decisions DataFrame (backward compatible).
+        risk_aversion : float, default 0.0
+            Risk aversion parameter λ ∈ [0, 1] controlling the trade-off between expected profit 
+            and downside risk protection via CVaR:
+            - λ = 0.0 (default): Risk-neutral optimization, maximizes expected profit only
+            - λ = 1.0: Fully risk-averse, maximizes CVaR only (focuses on worst scenarios)
+            - λ ∈ (0, 1): Convex combination balancing expected value and CVaR
+            
+            Objective becomes: max (1-λ)·E[Profit] + λ·CVaR_α[Profit]
+            
+            Higher values lead to more conservative capacity decisions that perform better 
+            in worst-case scenarios but may sacrifice expected profit.
+        cvar_alpha : float, default 0.05
+            CVaR confidence level α ∈ (0, 1) defining the tail probability:
+            - α = 0.05 (default): CVaR₀.₀₅ focuses on worst 5% of scenarios
+            - α = 0.01: More extreme tail risk (worst 1% of scenarios)
+            - α = 0.10: Broader tail risk (worst 10% of scenarios)
+            
+            Smaller α values provide protection against more extreme downside events 
+            but are based on fewer scenarios. Only active when risk_aversion > 0.
+        log_level : str, default "INFO"
+            Logging verbosity level controlling the amount of output displayed:
+            - "DEBUG": Detailed step-by-step information including variable counts, 
+                      constraint details, and all intermediate computations
+            - "INFO": Standard progress information including major steps, validation results,
+                     and optimization summary (recommended for most users)
+            - "WARNING": Only warnings and errors (minimal output)
+            - "ERROR": Only critical errors
+            
+            Use "DEBUG" for troubleshooting, "INFO" for normal operation, and "WARNING" 
+            when running in production or batch mode where minimal output is desired.
             
         Returns
         -------
-        decisions : pd.DataFrame
+        decisions : pd.DataFrame or dict
+            **If return_full_results=False (default):**
             DataFrame with optimal first-stage decisions indexed by Date:
             - 'Cap_base': Optimal base capacity decisions (tons/month)
             - 'Q_base': Optimal base scrap contract decisions (tons/month)
-            
             Shape: (n_time_periods, 2)
+            
+            **If return_full_results=True:**
+            Dictionary containing:
+            - 'q_cap_base': Series of base capacity decisions by period
+            - 'q_scrap_base': Series of base scrap contracts by period
+            - 'q_cap_flex_scenarios': DataFrame of flexible capacity by (period, scenario)
+            - 'q_scrap_spot_scenarios': DataFrame of spot scrap by (period, scenario)
+            - 'q_scenarios': DataFrame of production by (period, scenario)
+            - 'sales_scenarios': DataFrame of sales by (period, scenario)
+            - 'profit_by_scenario': Series of profit for each scenario
+            - 'expected_profit': Float, the optimal objective value
             Index: DatetimeIndex matching the time periods in scenarios
             
         Mathematical Formulation
         ------------------------
-        **Objective: Maximize Expected Profit**
+        **Objective: Maximize Expected Profit with Optional CVaR Risk Management**
         
+        **Risk-Neutral Case (λ = 0, default):**
         max E[Profit] = E[Revenue - Variable_Costs - Capacity_Costs - Procurement_Costs - Penalties]
                     = Σₛ pₛ × [Σₜ (Pₜₛ×yₜₛ - Cₜₛ×(q_base_ₜₛ + q_spot_ₜₛ) - c_var×xₜₛ 
                                 - c_cap_flex×Cap_flex_ₜₛ - δ_spot×q_spot_ₜₛ - pen_unmet×uₜₛ)]
                     - Σₜ (c_cap_base×Cap_base_ₜ + δ_base×Q_base_ₜ)
+        
+        **Risk-Averse Case (λ > 0):**
+        max (1-λ)·E[Profit] + λ·CVaR_α[Profit]
+        
+        where CVaR_α[Profit] is computed via the auxiliary formulation:
+        CVaR_α[Profit] = VaR - (1/α)·Σₛ pₛ×zₛ
+        
+        with auxiliary variables:
+        - VaR: Value-at-Risk threshold (free variable)
+        - zₛ ≥ 0: Shortfall below VaR for scenario s
+        - zₛ ≥ VaR - Profit_ₛ for all s (shortfall constraint)
+        
+        The risk aversion parameter λ controls the trade-off:
+        - λ = 0: Pure expected value maximization (risk-neutral)
+        - λ = 1: Pure CVaR maximization (fully risk-averse)
+        - λ ∈ (0,1): Convex combination balancing both objectives
         
         **Stage 1 Variables (First-stage decisions):**
         - Cap_base_ₜ: Base capacity in period t (tons/month)
@@ -3562,15 +3661,29 @@ class TwoStageCapacityAndProcurementPlanning:
         import pandas as pd
         import pyomo.environ as pyo
         
-        print("="*60)
-        print("TWO-STAGE STOCHASTIC PROGRAMMING OPTIMIZATION")
-        print("="*60)
+        # Configure logger for this method
+        logger = logging.getLogger(__name__)
+        logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+        
+        # Remove existing handlers to avoid duplicate logging
+        logger.handlers = []
+        
+        # Create console handler with formatting
+        ch = logging.StreamHandler()
+        ch.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+        formatter = logging.Formatter('%(levelname)s: %(message)s')
+        ch.setFormatter(formatter)
+        logger.addHandler(ch)
+        
+        logger.info("="*60)
+        logger.info("TWO-STAGE STOCHASTIC PROGRAMMING OPTIMIZATION")
+        logger.info("="*60)
         
         # ================================
         # INPUT VALIDATION
         # ================================
         
-        print("Validating inputs...")
+        logger.info("Validating inputs...")
         
         # Validate scenarios DataFrame
         required_cols = ['Date', 'Scenario', 'D', 'P', 'C']
@@ -3600,16 +3713,16 @@ class TwoStageCapacityAndProcurementPlanning:
         if missing_probs:
             raise ValueError(f"Missing probabilities for scenarios: {missing_probs[:10]}")
         
-        print(f"✓ Input validation completed")
-        print(f"  Time periods: {len(T)}")
-        print(f"  Scenarios: {len(S)}")
-        print(f"  Total probability: {psum:.6f}")
+        logger.info(f"✓ Input validation completed")
+        logger.debug(f"  Time periods: {len(T)}")
+        logger.debug(f"  Scenarios: {len(S)}")
+        logger.debug(f"  Total probability: {psum:.6f}")
         
         # ================================
         # BUILD PARAMETER DICTIONARIES
         # ================================
         
-        print("Building parameter dictionaries...")
+        logger.info("Building parameter dictionaries...")
         
         # Create fast lookup via multi-index
         df2 = df.set_index(["Date", "Scenario"]).sort_index()
@@ -3632,16 +3745,16 @@ class TwoStageCapacityAndProcurementPlanning:
         # Scenario probabilities
         p = {s: float(prob.loc[s]) for s in S}
         
-        print(f"✓ Parameter dictionaries built")
-        print(f"  Average demand: {sum(D.values())/len(D):.1f}")
-        print(f"  Average price: €{sum(P.values())/len(P):.1f}/ton")
-        print(f"  Average cost: €{sum(C.values())/len(C):.1f}/ton")
+        logger.info(f"✓ Parameter dictionaries built")
+        logger.debug(f"  Average demand: {sum(D.values())/len(D):.1f}")
+        logger.debug(f"  Average price: €{sum(P.values())/len(P):.1f}/ton")
+        logger.debug(f"  Average cost: €{sum(C.values())/len(C):.1f}/ton")
         
         # ================================
         # BUILD PYOMO MODEL
         # ================================
         
-        print("Building optimization model...")
+        logger.info("Building optimization model...")
         
         m = pyo.ConcreteModel()
         
@@ -3649,7 +3762,7 @@ class TwoStageCapacityAndProcurementPlanning:
         m.T = pyo.Set(initialize=T, ordered=True)
         m.S = pyo.Set(initialize=S, ordered=True)
         
-        print(f"  Sets defined: T={len(m.T)}, S={len(m.S)}")
+        logger.debug(f"  Sets defined: T={len(m.T)}, S={len(m.S)}")
         
         # Stage 1 Variables (First-stage decisions)
         m.Cap_base = pyo.Var(m.T, domain=pyo.NonNegativeReals, doc="Base capacity decisions")
@@ -3663,13 +3776,20 @@ class TwoStageCapacityAndProcurementPlanning:
         m.q_base = pyo.Var(m.T, m.S, domain=pyo.NonNegativeReals, doc="Scrap called from base")
         m.q_spot = pyo.Var(m.T, m.S, domain=pyo.NonNegativeReals, doc="Spot scrap procurement")
         
-        print(f"  Variables defined: {1*len(T) + 6*len(T)*len(S)} total")
+        # CVaR auxiliary variables (only created if risk_aversion > 0)
+        if risk_aversion > 0:
+            m.VaR = pyo.Var(domain=pyo.Reals, doc="Value-at-Risk threshold")
+            m.z = pyo.Var(m.S, domain=pyo.NonNegativeReals, doc="CVaR shortfall variables")
+            logger.debug(f"  CVaR variables added: VaR (1) + z ({len(m.S)})")
+        
+        logger.debug(f"  Variables defined: {1*len(T) + 6*len(T)*len(S)} total" + 
+              (f" + {1 + len(S)} CVaR" if risk_aversion > 0 else ""))
         
         # ================================
         # CONSTRAINTS
         # ================================
         
-        print("Adding constraints...")
+        logger.info("Adding constraints...")
         
         # 1. Demand balance: y + u = D
         def demand_balance_rule(m, t, s):
@@ -3713,21 +3833,13 @@ class TwoStageCapacityAndProcurementPlanning:
         m.SpotProcurementBound = pyo.Constraint(m.T, m.S, rule=spot_procurement_bound_rule,
                                             doc="Spot scrap limited by base contract")
         
-        print(f"✓ Constraints added:")
-        print(f"  Demand balance: {len(T)*len(S)} constraints")
-        print(f"  Capacity and operational: {5*len(T)*len(S)} constraints")
-        print(f"  Recourse bounds: {2*len(T)*len(S)} constraints")
+        constraint_count = len(T)*len(S) * 7  # 7 constraints per (t,s) pair
         
-        # ================================
-        # OBJECTIVE FUNCTION
-        # ================================
-        
-        print("Building objective function...")
-        
-        def objective_rule(m):
-            # Expected scenario profit (Stage 2)
-            expected_profit = 0.0
-            for s in m.S:
+        # CVaR shortfall constraints (only if risk_aversion > 0)
+        if risk_aversion > 0:
+            # First, create Profit expression for each scenario
+            def profit_expr_rule(m, s):
+                # Stage 2 profit for scenario s
                 scenario_profit = 0.0
                 for t in m.T:
                     # Revenue from sales
@@ -3746,30 +3858,109 @@ class TwoStageCapacityAndProcurementPlanning:
                     
                     # Net profit for this (t,s)
                     scenario_profit += (revenue - scrap_cost - production_cost - 
-                                    flex_capacity_cost - spot_premium - unmet_penalty)
+                                       flex_capacity_cost - spot_premium - unmet_penalty)
                 
-                # Weight by scenario probability
-                expected_profit += p[s] * scenario_profit
+                # Subtract stage 1 costs
+                stage1_costs = sum(
+                    c_cap_base * m.Cap_base[t] + delta_base * m.Q_base[t]
+                    for t in m.T
+                )
+                return scenario_profit - stage1_costs
             
-            # Stage 1 costs (deterministic)
-            stage1_costs = sum(
-                c_cap_base * m.Cap_base[t] + delta_base * m.Q_base[t]
-                for t in m.T
-            )
+            m.Profit = pyo.Expression(m.S, rule=profit_expr_rule, doc="Profit by scenario")
             
-            # Total expected profit
-            return expected_profit - stage1_costs
+            # CVaR shortfall constraint: z_s >= VaR - Profit_s
+            def cvar_shortfall_rule(m, s):
+                return m.z[s] >= m.VaR - m.Profit[s]
+            m.CVaR_Shortfall = pyo.Constraint(m.S, rule=cvar_shortfall_rule,
+                                             doc="CVaR shortfall constraints")
+            
+            constraint_count += len(S)
+            logger.info(f"✓ Constraints added:")
+            logger.debug(f"  Operational constraints: {len(T)*len(S)*7} constraints")
+            logger.debug(f"  CVaR shortfall: {len(S)} constraints")
+            logger.debug(f"  Total: {constraint_count} constraints")
+        else:
+            logger.info(f"✓ Constraints added:")
+            logger.debug(f"  Demand balance: {len(T)*len(S)} constraints")
+            logger.debug(f"  Capacity and operational: {5*len(T)*len(S)} constraints")
+            logger.debug(f"  Recourse bounds: {2*len(T)*len(S)} constraints")
         
-        m.Objective = pyo.Objective(rule=objective_rule, sense=pyo.maximize,
-                                doc="Maximize expected profit")
+        # ================================
+        # OBJECTIVE FUNCTION
+        # ================================
         
-        print(f"✓ Objective function built (maximize expected profit)")
+        logger.info("Building objective function...")
+        
+        if risk_aversion > 0:
+            # Risk-averse objective: Blend expected profit and CVaR
+            logger.debug(f"  Risk-averse mode: λ={risk_aversion}, CVaR_α={cvar_alpha}")
+            
+            def objective_rule_cvar(m):
+                # Expected profit component
+                expected_profit = sum(p[s] * m.Profit[s] for s in m.S)
+                
+                # CVaR component: VaR - (1/α) × E[z]
+                cvar_term = m.VaR - (1.0 / cvar_alpha) * sum(p[s] * m.z[s] for s in m.S)
+                
+                # Blended objective: (1-λ)·E[Profit] + λ·CVaR
+                return (1.0 - risk_aversion) * expected_profit + risk_aversion * cvar_term
+            
+            m.Objective = pyo.Objective(rule=objective_rule_cvar, sense=pyo.maximize,
+                                       doc="Maximize risk-adjusted profit (expected profit + CVaR)")
+            
+            logger.info(f"✓ Objective function built: max (1-{risk_aversion})·E[Profit] + {risk_aversion}·CVaR_{cvar_alpha}[Profit]")
+        
+        else:
+            # Risk-neutral objective: Expected profit only (original formulation)
+            logger.debug(f"  Risk-neutral mode (λ=0)")
+            
+            def objective_rule(m):
+                # Expected scenario profit (Stage 2)
+                expected_profit = 0.0
+                for s in m.S:
+                    scenario_profit = 0.0
+                    for t in m.T:
+                        # Revenue from sales
+                        revenue = P[(t, s)] * m.y[t, s]
+                        
+                        # Variable costs
+                        scrap_cost = C[(t, s)] * (m.q_base[t, s] + m.q_spot[t, s])
+                        production_cost = c_var * m.x[t, s]
+                        
+                        # Recourse costs
+                        flex_capacity_cost = c_cap_flex * m.Cap_flex[t, s]
+                        spot_premium = delta_spot * m.q_spot[t, s]
+                        
+                        # Penalty costs
+                        unmet_penalty = pen_unmet * m.u[t, s]
+                        
+                        # Net profit for this (t,s)
+                        scenario_profit += (revenue - scrap_cost - production_cost - 
+                                        flex_capacity_cost - spot_premium - unmet_penalty)
+                    
+                    # Weight by scenario probability
+                    expected_profit += p[s] * scenario_profit
+                
+                # Stage 1 costs (deterministic)
+                stage1_costs = sum(
+                    c_cap_base * m.Cap_base[t] + delta_base * m.Q_base[t]
+                    for t in m.T
+                )
+                
+                # Total expected profit
+                return expected_profit - stage1_costs
+            
+            m.Objective = pyo.Objective(rule=objective_rule, sense=pyo.maximize,
+                                    doc="Maximize expected profit")
+            
+            logger.info(f"✓ Objective function built (maximize expected profit)")
         
         # ================================
         # SOLVE MODEL
         # ================================
         
-        print(f"\nSolving with {solver} solver...")
+        logger.info(f"\nSolving with {solver} solver...")
         
         try:
             solver_obj = pyo.SolverFactory(solver)
@@ -3781,16 +3972,16 @@ class TwoStageCapacityAndProcurementPlanning:
             
             # Check solution status
             if results.solver.termination_condition == pyo.TerminationCondition.optimal:
-                print(f"✓ Optimization completed successfully")
-                print(f"  Termination condition: {results.solver.termination_condition}")
-                print(f"  Solution status: {results.solver.status}")
+                logger.info(f"✓ Optimization completed successfully")
+                logger.debug(f"  Termination condition: {results.solver.termination_condition}")
+                logger.debug(f"  Solution status: {results.solver.status}")
                 
                 # Extract objective value if available
                 try:
                     obj_value = pyo.value(m.Objective)
-                    print(f"  Optimal objective value: €{obj_value:,.0f}")
+                    logger.info(f"  Optimal objective value: €{obj_value:,.0f}")
                 except:
-                    print(f"  Objective value: Available after extraction")
+                    logger.debug(f"  Objective value: Available after extraction")
                     
             elif results.solver.termination_condition == pyo.TerminationCondition.infeasible:
                 raise RuntimeError("Model is infeasible. Check parameter values and constraints.")
@@ -3799,8 +3990,8 @@ class TwoStageCapacityAndProcurementPlanning:
                 raise RuntimeError("Model is unbounded. Check objective function and constraints.")
                 
             else:
-                print(f"⚠ Warning: Solver terminated with condition: {results.solver.termination_condition}")
-                print(f"  Proceeding with solution extraction...")
+                logger.warning(f"⚠ Warning: Solver terminated with condition: {results.solver.termination_condition}")
+                logger.warning(f"  Proceeding with solution extraction...")
                 
         except Exception as e:
             raise RuntimeError(f"Optimization failed: {str(e)}")
@@ -3809,14 +4000,14 @@ class TwoStageCapacityAndProcurementPlanning:
         # EXTRACT RESULTS
         # ================================
         
-        print("Extracting optimal decisions...")
+        logger.info("Extracting optimal decisions...")
         
         try:
             # Extract Stage 1 decisions
             cap_base_decisions = {t: pyo.value(m.Cap_base[t]) for t in m.T}
             q_base_decisions = {t: pyo.value(m.Q_base[t]) for t in m.T}
             
-            # Create results DataFrame
+            # Create results DataFrame (for backward compatibility)
             decisions = pd.DataFrame({
                 'Cap_base': cap_base_decisions,
                 'Q_base': q_base_decisions
@@ -3833,9 +4024,108 @@ class TwoStageCapacityAndProcurementPlanning:
             if (decisions < 0).any().any():
                 raise RuntimeError("Solution contains negative values")
             
-            print(f"✓ Results extracted successfully")
-            print(f"  Decision variables: {decisions.shape}")
-            print(f"  Date range: {decisions.index.min()} to {decisions.index.max()}")
+            # Extract objective value
+            obj_value = pyo.value(m.Objective)
+            
+            # If full results requested, extract Stage 2 variables and calculate metrics
+            if return_full_results:
+                logger.info("Extracting full results (Stage 2 recourse variables and metrics)...")
+                
+                # Extract Stage 2 recourse decisions
+                q_cap_flex_scenarios = pd.DataFrame({
+                    s: {t: pyo.value(m.Cap_flex[t, s]) for t in m.T} 
+                    for s in m.S
+                })
+                q_cap_flex_scenarios.index = decisions.index
+                
+                q_scrap_spot_scenarios = pd.DataFrame({
+                    s: {t: pyo.value(m.q_spot[t, s]) for t in m.T}
+                    for s in m.S
+                })
+                q_scrap_spot_scenarios.index = decisions.index
+                
+                q_scenarios = pd.DataFrame({
+                    s: {t: pyo.value(m.x[t, s]) for t in m.T}
+                    for s in m.S
+                })
+                q_scenarios.index = decisions.index
+                
+                sales_scenarios = pd.DataFrame({
+                    s: {t: pyo.value(m.y[t, s]) for t in m.T}
+                    for s in m.S
+                })
+                sales_scenarios.index = decisions.index
+                
+                # Calculate profit by scenario
+                profit_by_scenario = {}
+                for s in m.S:
+                    # Stage 2 profit: revenue - variable costs - recourse costs - penalties
+                    scenario_profit = 0.0
+                    for t in m.T:
+                        # Revenue from sales
+                        revenue = P[(t, s)] * pyo.value(m.y[t, s])
+                        
+                        # Variable costs
+                        scrap_cost = C[(t, s)] * (pyo.value(m.q_base[t, s]) + pyo.value(m.q_spot[t, s]))
+                        production_cost = c_var * pyo.value(m.x[t, s])
+                        
+                        # Recourse costs
+                        flex_capacity_cost = c_cap_flex * pyo.value(m.Cap_flex[t, s])
+                        spot_premium = delta_spot * pyo.value(m.q_spot[t, s])
+                        
+                        # Penalty costs
+                        unmet_penalty = pen_unmet * pyo.value(m.u[t, s])
+                        
+                        # Net profit for this (t,s)
+                        scenario_profit += (revenue - scrap_cost - production_cost - 
+                                           flex_capacity_cost - spot_premium - unmet_penalty)
+                    
+                    # Subtract stage 1 costs (amortized to this scenario)
+                    stage1_cost = sum(
+                        c_cap_base * pyo.value(m.Cap_base[t]) + delta_base * pyo.value(m.Q_base[t])
+                        for t in m.T
+                    )
+                    profit_by_scenario[s] = scenario_profit - stage1_cost
+                
+                profit_by_scenario = pd.Series(profit_by_scenario)
+                
+                # Package full results
+                full_results = {
+                    'q_cap_base': decisions['Cap_base'],
+                    'q_scrap_base': decisions['Q_base'],
+                    'q_cap_flex_scenarios': q_cap_flex_scenarios,
+                    'q_scrap_spot_scenarios': q_scrap_spot_scenarios,
+                    'q_scenarios': q_scenarios,
+                    'sales_scenarios': sales_scenarios,
+                    'profit_by_scenario': profit_by_scenario,
+                    'expected_profit': obj_value
+                }
+                
+                # Add CVaR metrics if risk-averse mode was used
+                if risk_aversion > 0:
+                    var_value = pyo.value(m.VaR)
+                    z_values = {s: pyo.value(m.z[s]) for s in m.S}
+                    cvar_value = var_value - (1.0 / cvar_alpha) * sum(p[s] * z_values[s] for s in S)
+                    
+                    full_results['risk_metrics'] = {
+                        'VaR': var_value,
+                        'CVaR': cvar_value,
+                        'risk_aversion': risk_aversion,
+                        'cvar_alpha': cvar_alpha,
+                        'shortfalls': pd.Series(z_values)
+                    }
+                    logger.debug(f"  CVaR metrics: VaR=€{var_value:,.0f}, CVaR=€{cvar_value:,.0f}")
+                
+                logger.info(f"✓ Full results extracted successfully")
+                logger.debug(f"  Stage 1 decisions: {decisions.shape}")
+                logger.debug(f"  Stage 2 variables by scenario: {q_cap_flex_scenarios.shape}")
+                logger.debug(f"  Date range: {decisions.index.min()} to {decisions.index.max()}")
+            
+            else:
+                # Standard output (backward compatible)
+                logger.info(f"✓ Results extracted successfully")
+                logger.debug(f"  Decision variables: {decisions.shape}")
+                logger.debug(f"  Date range: {decisions.index.min()} to {decisions.index.max()}")
             
         except Exception as e:
             raise RuntimeError(f"Failed to extract results: {str(e)}")
@@ -3844,51 +4134,51 @@ class TwoStageCapacityAndProcurementPlanning:
         # SOLUTION SUMMARY
         # ================================
         
-        print("\n" + "="*60)
-        print("OPTIMIZATION SUMMARY")
-        print("="*60)
+        logger.info("\n" + "="*60)
+        logger.info("OPTIMIZATION SUMMARY")
+        logger.info("="*60)
         
-        print(f"Model statistics:")
-        print(f"  Variables: {len(T)*2} stage-1 + {len(T)*len(S)*6} stage-2 = {len(T)*2 + len(T)*len(S)*6}")
-        print(f"  Constraints: {len(T)*len(S)*7}")
-        print(f"  Scenarios: {len(S)}")
-        print(f"  Time periods: {len(T)}")
+        logger.debug(f"Model statistics:")
+        logger.debug(f"  Variables: {len(T)*2} stage-1 + {len(T)*len(S)*6} stage-2 = {len(T)*2 + len(T)*len(S)*6}")
+        logger.debug(f"  Constraints: {len(T)*len(S)*7}")
+        logger.debug(f"  Scenarios: {len(S)}")
+        logger.debug(f"  Time periods: {len(T)}")
         
-        try:
-            obj_value = pyo.value(m.Objective)
-            print(f"\nOptimal solution:")
-            print(f"  Expected profit: €{obj_value:,.0f}")
-        except:
-            print(f"\nOptimal solution found (objective value calculation failed)")
+        logger.info(f"\nOptimal solution:")
+        logger.info(f"  Expected profit: €{obj_value:,.0f}")
         
-        print(f"\nDecision summary:")
-        print(f"  Base capacity range: {decisions['Cap_base'].min():.1f} - {decisions['Cap_base'].max():.1f} tons/month")
-        print(f"  Average base capacity: {decisions['Cap_base'].mean():.1f} tons/month")
-        print(f"  Base contract range: {decisions['Q_base'].min():.1f} - {decisions['Q_base'].max():.1f} tons/month")
-        print(f"  Average base contract: {decisions['Q_base'].mean():.1f} tons/month")
+        logger.info(f"\nDecision summary:")
+        logger.info(f"  Base capacity range: {decisions['Cap_base'].min():.1f} - {decisions['Cap_base'].max():.1f} tons/month")
+        logger.info(f"  Average base capacity: {decisions['Cap_base'].mean():.1f} tons/month")
+        logger.info(f"  Base contract range: {decisions['Q_base'].min():.1f} - {decisions['Q_base'].max():.1f} tons/month")
+        logger.info(f"  Average base contract: {decisions['Q_base'].mean():.1f} tons/month")
         
         # Economic insights
         total_base_capacity = decisions['Cap_base'].sum()
         total_base_contracts = decisions['Q_base'].sum()
         avg_capacity_utilization = total_base_contracts * alpha / total_base_capacity if total_base_capacity > 0 else 0
         
-        print(f"\nEconomic insights:")
-        print(f"  Total base capacity investment: {total_base_capacity:.1f} tons")
-        print(f"  Total scrap contracts: {total_base_contracts:.1f} tons")
-        print(f"  Implied capacity utilization: {avg_capacity_utilization:.1%}")
+        logger.debug(f"\nEconomic insights:")
+        logger.debug(f"  Total base capacity investment: {total_base_capacity:.1f} tons")
+        logger.debug(f"  Total scrap contracts: {total_base_contracts:.1f} tons")
+        logger.debug(f"  Implied capacity utilization: {avg_capacity_utilization:.1%}")
         
         if decisions['Cap_base'].std() / decisions['Cap_base'].mean() > 0.2:
-            print(f"  ⚠ High capacity variation suggests volatile demand expectations")
+            logger.warning(f"  ⚠ High capacity variation suggests volatile demand expectations")
         
         if avg_capacity_utilization > 0.9:
-            print(f"  ⚠ High utilization suggests tight capacity - consider flexibility parameters")
+            logger.warning(f"  ⚠ High utilization suggests tight capacity - consider flexibility parameters")
         elif avg_capacity_utilization < 0.3:
-            print(f"  ⚠ Low utilization suggests over-investment or conservative strategy")
+            logger.warning(f"  ⚠ Low utilization suggests over-investment or conservative strategy")
         
-        print("\n✓ Two-stage stochastic optimization completed successfully")
-        print("  Returns: decisions DataFrame with optimal Cap_base and Q_base by period")
-        
-        return decisions
+        if return_full_results:
+            logger.info("\n✓ Two-stage stochastic optimization completed successfully")
+            logger.debug("  Returns: Dictionary with full results including recourse decisions and profit metrics")
+            return full_results
+        else:
+            logger.info("\n✓ Two-stage stochastic optimization completed successfully")
+            logger.debug("  Returns: decisions DataFrame with optimal Cap_base and Q_base by period")
+            return decisions
 
     @staticmethod
     def backtesting_simulation(decisions, actual_future_data, alpha, c_var, c_cap_base, c_cap_flex, 

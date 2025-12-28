@@ -417,6 +417,66 @@ This is a **linear programming (LP)** problem that can be solved efficiently usi
 
 ---
 
+### CVaR Risk Management Extension
+
+The model supports an optional **Conditional Value-at-Risk (CVaR)** extension for risk-averse decision-making. This allows the decision-maker to trade off expected profit against protection from worst-case scenarios.
+
+#### Risk-Averse Objective Function
+
+The standard risk-neutral objective can be extended to incorporate CVaR:
+
+$$\max \quad (1 - \lambda) \cdot \mathbb{E}[\Pi] + \lambda \cdot \text{CVaR}_{\alpha}[\Pi]$$
+
+where:
+- $\lambda \in [0, 1]$ is the **risk aversion parameter**
+  - $\lambda = 0$: Risk-neutral (maximize expected profit only)
+  - $\lambda = 1$: Fully risk-averse (maximize CVaR only)
+  - $\lambda \in (0, 1)$: Convex combination balancing expected value and CVaR
+- $\alpha \in (0, 1)$ is the **CVaR confidence level** (e.g., $\alpha = 0.05$ for worst 5% scenarios)
+
+#### CVaR Formulation
+
+The CVaR term is computed using the standard epigraph formulation with auxiliary variables:
+
+$$\text{CVaR}_{\alpha}[\Pi] = \text{VaR} - \frac{1}{\alpha} \sum_{s \in S} p_s \cdot z_s$$
+
+where:
+- $\text{VaR} \in \mathbb{R}$: Value-at-Risk threshold (free variable)
+- $z_s \geq 0$: Shortfall variables measuring deviation below VaR
+- Constraint: $z_s \geq \text{VaR} - \Pi_s \quad \forall s$
+
+#### Complete Risk-Averse Formulation
+
+$$\begin{aligned}
+\max \quad & (1 - \lambda) \sum_{s \in S} p_s \Pi_s + \lambda \left( \text{VaR} - \frac{1}{\alpha} \sum_{s \in S} p_s z_s \right) \\[0.5em]
+\text{s.t.} \quad & z_s \geq \text{VaR} - \Pi_s, \quad \forall s \\[0.3em]
+& z_s \geq 0, \quad \forall s \\[0.3em]
+& \text{VaR} \text{ free} \\[0.3em]
+& \text{All original constraints}
+\end{aligned}$$
+
+where $\Pi_s$ is the profit for scenario $s$:
+
+$$\Pi_s = \sum_{t \in T} \left[ P_{t,s} \cdot y_{t,s} - C_{t,s} \cdot (q_{\text{base},t,s} + q_{\text{spot},t,s}) - c_{\text{var}} \cdot x_{t,s} - c_{\text{cap,flex}} \cdot \text{Cap}_{\text{flex},t,s} - \delta_{\text{spot}} \cdot q_{\text{spot},t,s} - \text{pen}_{\text{unmet}} \cdot u_{t,s} \right] - \sum_{t \in T} \left( c_{\text{cap,base}} \cdot \text{Cap}_{\text{base},t} + \delta_{\text{base}} \cdot Q_{\text{base},t} \right)$$
+
+#### Economic Interpretation
+
+| Parameter | Effect on Decisions |
+|-----------|--------------------|
+| $\lambda = 0$ | Maximize expected profit; may accept high variance |
+| $\lambda = 0.3$ | Moderate risk aversion; sacrifice some expected profit for stability |
+| $\lambda = 0.7$ | High risk aversion; prioritize protection against worst cases |
+| $\lambda = 1$ | Fully risk-averse; optimize only for the worst $\alpha$% scenarios |
+| $\alpha = 0.05$ | Focus on worst 5% of scenarios |
+| $\alpha = 0.01$ | Focus on worst 1% (more extreme tail protection) |
+
+**Practical Impact**:
+- Higher risk aversion ($\lambda$) typically leads to **more conservative** first-stage decisions (higher base capacity, larger contracts)
+- This reduces the reliance on flexible/spot options which may not be available in worst-case scenarios
+- The trade-off: Expected profit decreases but worst-case outcomes improve
+
+---
+
 ### Expected Profit Analysis
 
 #### Expected Profit Decomposition
@@ -541,6 +601,7 @@ data_subset = TwoStageCapacityAndProcurementPlanning.get_n_observations(
 - `data` (pd.DataFrame): Price and demand level data
 - `plot_data` (bool, optional): Whether to plot the log returns (default: False)
 - `print_stats` (bool, optional): Whether to print summary statistics (default: False)
+- `log_level` (str, optional): Logging verbosity: 'DEBUG', 'INFO', 'WARNING', 'ERROR' (default: 'INFO')
 
 **Returns**: `pd.DataFrame` with log returns
 
@@ -567,6 +628,7 @@ log_ret = TwoStageCapacityAndProcurementPlanning.log_returns(
 - `Δlog` (pd.DataFrame): Log returns data
 - `maxlags` (int, optional): Maximum number of lags to consider (default: 12)
 - `method` (str, optional): Information criterion to use: 'aic', 'bic', 'hqic', 'fpe' (default: 'bic')
+- `log_level` (str, optional): Logging verbosity: 'DEBUG', 'INFO', 'WARNING', 'ERROR' (default: 'INFO')
 
 **Returns**: `int` - Optimal lag order p*
 
@@ -603,6 +665,7 @@ optimal_p_hqic = TwoStageCapacityAndProcurementPlanning.VAR_order_selection(
 - `method` (str, optional): Information criterion (default: 'bic')
 - `testing` (list, optional): Diagnostic tests to run: ['corr', 'irf', 'sim_stats'] (default: all)
 - `print_warnings` (bool, optional): Whether to print warnings (default: True)
+- `log_level` (str, optional): Logging verbosity: 'DEBUG', 'INFO', 'WARNING', 'ERROR' (default: 'INFO')
 
 **Returns**: Fitted VAR model object
 
@@ -800,6 +863,7 @@ fig = TwoStageCapacityAndProcurementPlanning.plot_scenarios_evolution(
 - `n_scenario_clusters` (int, optional): Target number of scenarios (default: 50)
 - `stress_pct` (float, optional): Percentage of extreme scenarios to include (default: 0.01)
 - `seed` (int, optional): Random seed for reproducibility (default: 42)
+- `log_level` (str, optional): Logging verbosity: 'DEBUG', 'INFO', 'WARNING', 'ERROR' (default: 'INFO')
 
 **Returns**: Dictionary with reduced 'scenarios' and updated 'prob' arrays
 
@@ -831,23 +895,38 @@ print(f"Reduced: {scenarios_reduced['scenarios'].shape[0]} scenarios")
 
 #### 11. `optimize_capacity_and_procurement`
 
-**Description**: Solves the two-stage stochastic programming problem to find optimal capacity and procurement decisions.
+**Description**: Solves the two-stage stochastic programming problem to find optimal capacity and procurement decisions. Supports optional CVaR risk management for risk-averse optimization.
 
 **Inputs**:
-- `scenarios` (dict): Scenario data (can be full or reduced)
-- `prob` (np.array): Scenario probabilities
-- `alpha` (float): Existing capacity [units]
-- `c_var` (float): Variable production cost [$/unit]
-- `c_cap_base` (float): Base capacity expansion cost [$/unit]
-- `c_cap_flex` (float): Flexible capacity cost [$/unit]
-- `delta_base` (float): Long-term contract procurement cost [$/unit]
-- `delta_spot` (float): Spot procurement cost multiplier
-- `pen_unmet` (float): Penalty for unmet demand [$/unit]
-- `gamma_cap` (float): Steel production per unit capacity
-- `gamma_scrap` (float): Scrap requirement per unit steel produced
-- `solver` (str, optional): LP solver to use: 'highs', 'glpk', 'gurobi' (default: 'highs')
+- `scenarios` (pd.DataFrame): Long-form DataFrame with scenario data containing columns ['Date', 'Scenario', 'D', 'P', 'C']
+- `prob` (pd.Series): Series with scenario probabilities indexed by scenario identifiers (must sum to 1.0)
+- `alpha` (float): Scrap consumption rate per unit of production (≥ 1)
+- `c_var` (float): Variable production cost per unit [€/ton]
+- `c_cap_base` (float): Fixed cost per unit of base capacity per period [€/ton/month]
+- `c_cap_flex` (float): Fixed cost per unit of flexible capacity per period [€/ton/month]
+- `delta_base` (float): Premium cost for base scrap procurement option [€/ton]
+- `delta_spot` (float): Premium cost for spot scrap procurement [€/ton]
+- `pen_unmet` (float): Penalty cost per unit of unmet demand [€/ton]
+- `gamma_cap` (float): Maximum flexible capacity as fraction of base capacity (0 ≤ γ_cap ≤ 1)
+- `gamma_scrap` (float): Maximum spot scrap procurement as fraction of base contract (0 ≤ γ_scrap ≤ 2)
+- `solver` (str, optional): Optimization solver to use: 'highs', 'gurobi', 'cplex', 'glpk' (default: 'highs')
+- `return_full_results` (bool, optional): If True, returns comprehensive results including recourse decisions (default: False)
+- `risk_aversion` (float, optional): Risk aversion parameter λ ∈ [0, 1] for CVaR optimization (default: 0.0 = risk-neutral)
+- `cvar_alpha` (float, optional): CVaR confidence level α ∈ (0, 1) defining tail probability (default: 0.05)
+- `log_level` (str, optional): Logging verbosity: 'DEBUG', 'INFO', 'WARNING', 'ERROR' (default: 'INFO')
 
-**Returns**: Dictionary with optimal decisions and objective value
+**Returns**: 
+- If `return_full_results=False`: `pd.DataFrame` with optimal first-stage decisions ['Cap_base', 'Q_base'] indexed by Date
+- If `return_full_results=True`: Dictionary containing:
+  - `q_cap_base`: Series of base capacity decisions
+  - `q_scrap_base`: Series of base scrap contracts
+  - `q_cap_flex_scenarios`: DataFrame of flexible capacity by (period, scenario)
+  - `q_scrap_spot_scenarios`: DataFrame of spot scrap by (period, scenario)
+  - `q_scenarios`: DataFrame of production by (period, scenario)
+  - `sales_scenarios`: DataFrame of sales by (period, scenario)
+  - `profit_by_scenario`: Series of profit for each scenario
+  - `expected_profit`: Float, the optimal objective value
+  - `risk_metrics` (if risk_aversion > 0): Dict with VaR, CVaR, and shortfall values
 
 **Example**:
 ```python
@@ -900,6 +979,7 @@ unmet_demand = decisions['u']  # Shape: (n_scenarios, horizon)
 - `real_prices` (pd.DataFrame, optional): Additional price data for visualization
 - `plot_results` (bool, optional): Whether to generate diagnostic plots (default: True)
 - `figsize` (tuple, optional): Figure size (default: (15, 10))
+- `log_level` (str, optional): Logging verbosity: 'DEBUG', 'INFO', 'WARNING', 'ERROR' (default: 'INFO')
 
 **Returns**: Dictionary with realized profit and performance metrics
 
@@ -944,6 +1024,7 @@ period_production = backtest_results['period_production']
 - `figsize` (tuple, optional): Figure size (default: (16, 8))
 - `save_path` (str, optional): Path to save figure
 - `show_stats` (bool, optional): Whether to display statistics (default: True)
+- `log_level` (str, optional): Logging verbosity: 'DEBUG', 'INFO', 'WARNING', 'ERROR' (default: 'INFO')
 
 **Returns**: Dictionary with profit statistics and matplotlib figure
 
@@ -1084,17 +1165,39 @@ params = {
     'gamma_scrap': 0.8
 }
 
-# Solve optimization
+# Solve risk-neutral optimization
 decisions = TwoStageCapacityAndProcurementPlanning.optimize_capacity_and_procurement(
     scenarios=scenarios_reduced,
     prob=scenarios_reduced['prob'],
     solver='highs',
+    log_level='INFO',  # Control verbosity
     **params
 )
 
 print(f"Optimal base capacity expansion: {decisions['x_base']:.2f}")
 print(f"Optimal contract procurement: {decisions['y_contract']:.2f}")
 print(f"Expected profit: ${decisions['expected_profit']:,.2f}")
+
+# ========================================
+# Step 5b: Risk-Averse Optimization (CVaR)
+# ========================================
+
+# Solve with CVaR risk management (risk_aversion λ=0.3 balances profit/risk)
+decisions_risk_averse = TwoStageCapacityAndProcurementPlanning.optimize_capacity_and_procurement(
+    scenarios=scenarios_reduced,
+    prob=scenarios_reduced['prob'],
+    solver='highs',
+    risk_aversion=0.3,   # λ: weight on CVaR (0=risk-neutral, 1=focus on tail risk)
+    cvar_alpha=0.05,     # α: focus on worst 5% scenarios
+    return_full_results=True,  # Get detailed outputs including risk metrics
+    log_level='INFO',
+    **params
+)
+
+# Access risk metrics
+print(f"Risk-averse expected profit: ${decisions_risk_averse['expected_profit']:,.2f}")
+print(f"Value-at-Risk (VaR): ${decisions_risk_averse['risk_metrics']['VaR']:,.2f}")
+print(f"CVaR (Expected Shortfall): ${decisions_risk_averse['risk_metrics']['CVaR']:,.2f}")
 
 # ========================================
 # Step 6: Analyze Results

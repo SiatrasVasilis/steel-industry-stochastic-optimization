@@ -77,7 +77,8 @@ This isn't theoretical—the models are backtested on 10+ years of actual market
 
 **Status**: ✅ Implemented  
 **Documentation**: [docs/two_stage_model.md](docs/two_stage_model.md)  
-**Implementation**: [src/models/basic.py](src/models/basic.py)
+**Implementation**: [src/models/basic.py](src/models/basic.py)  
+**Example Notebook**: [notebooks/basic_usage.ipynb](notebooks/basic_usage.ipynb) - Backtested on 2020 COVID crisis with FRED index data for Prices and Demand and realistic cost parameters.
 
 A two-stage stochastic programming model for optimizing capacity expansion and raw material procurement decisions under uncertainty.
 
@@ -102,6 +103,11 @@ A two-stage stochastic programming model for optimizing capacity expansion and r
 - Raw material contract negotiations
 - Risk assessment and stress testing
 - Scenario analysis for strategic planning
+
+**Limitations**:
+- **Single Recourse Point**: Stage 2 decisions assume full knowledge of uncertainties when they resolve, whereas real decisions often require adjustments with partial information
+- **Computational vs. Flexibility Trade-off**: Multi-stage models with intermediate decision points would better represent rolling planning horizons but at significantly higher computational cost
+- **Best suited for**: Strategic planning with clear commitment deadlines (e.g., annual capacity contracts) rather than continuous operational adjustments
 
 ---
 
