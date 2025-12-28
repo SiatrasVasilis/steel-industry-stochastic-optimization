@@ -71,7 +71,7 @@ If realized demand exceeds our base capacity, we can temporarily expand producti
 
 **Economic Implications:**
 - **Higher unit cost**: Flexible capacity costs more per unit ($c_{\text{cap,flex}} > c_{\text{cap,base}}$) due to short-term premium
-- **Bounded flexibility**: Limited to a fraction of base capacity ($\text{Cap}_{\text{flex}} \leq \gamma_{\text{cap}} \cdot \text{Cap}_{\text{base}}$) due to operational constraints
+- **Bounded flexibility**: Limited to a fraction of base capacity (Cap<sub>flex</sub> ≤ γ<sub>cap</sub> · Cap<sub>base</sub>) due to operational constraints
 - **Scenario-dependent**: Decision is made after observing market conditions
 
 **2. Spot Procurement Extension ($q_{\text{spot},t,s}$)**
@@ -256,7 +256,9 @@ Using the VAR recursion:
 
 $$\Delta \log \mathbf{X}_{t_0+h}^{\omega} = \hat{\mathbf{c}} + \sum_{i=1}^{p} \hat{\mathbf{A}}_i \Delta \log \mathbf{X}_{t_0+h-i}^{\omega} + \boldsymbol{\varepsilon}_h^{\omega}$$
 
-where initial conditions $\Delta \log \mathbf{X}_{t_0}, \ldots, \Delta \log \mathbf{X}_{t_0-p+1}$ are taken from historical data.
+where initial conditions are taken from historical data:
+
+$$\Delta \log \mathbf{X}_{t_0}, \ldots, \Delta \log \mathbf{X}_{t_0-p+1}$$
 
 **Step 3: Reconstruct Levels**
 
@@ -346,7 +348,8 @@ $$\begin{aligned}
 **Decomposition**:
 
 **Stage 1 Costs** (deterministic, paid upfront):
-$$\sum_{t \in T} \left(c_{\text{cap,base}} \cdot \text{Cap}_{\text{base},t} + \delta_{\text{base}} \cdot Q_{\text{base},t}\right)$$
+Sum over t ∈ T of  
+c_cap,base · Cap_base,t + δ_base · Q_base,t
 
 **Expected Stage 2 Profit** (stochastic, scenario-dependent):
 - Revenue from sales: $P_{t,s} \cdot y_{t,s}$
@@ -354,12 +357,13 @@ $$\sum_{t \in T} \left(c_{\text{cap,base}} \cdot \text{Cap}_{\text{base},t} + \d
 - Variable production costs: $c_{\text{var}} \cdot x_{t,s}$
 - Flexible capacity costs: $c_{\text{cap,flex}} \cdot \text{Cap}_{\text{flex},t,s}$
 - Spot procurement premium: $\delta_{\text{spot}} \cdot q_{\text{spot},t,s}$
-- Unmet demand penalty: $\text{pen}_{\text{unmet}} \cdot u_{t,s}$
+- Unmet demand penalty: pen_unmet · u_t,s
 
 #### Constraints
 
 **All variables non-negative**:
-$$\text{Cap}_{\text{base},t}, Q_{\text{base},t}, \text{Cap}_{\text{flex},t,s}, x_{t,s}, y_{t,s}, u_{t,s}, q_{\text{base},t,s}, q_{\text{spot},t,s} \geq 0 \quad \forall t, s$$
+Cap_base,t, Q_base,t, Cap_flex,t,s, x_t,s, y_t,s, u_t,s,  
+q_base,t,s, q_spot,t,s ≥ 0 ∀ t, s
 
 **Second-Stage Constraints** (for each scenario $s$ and period $t$):
 
@@ -372,7 +376,7 @@ $$y_{t,s} \leq x_{t,s} \quad \forall t, s$$
 Sales cannot exceed production (no inventory).
 
 3. **Capacity constraint**:
-$$x_{t,s} \leq \text{Cap}_{\text{base},t} + \text{Cap}_{\text{flex},t,s} \quad \forall t, s$$
+$$x_{t,s} \leq Cap_{base,t} + Cap_{flex,t,s} \quad \forall t, s$$
 Production limited by total available capacity.
 
 4. **Scrap balance**:
@@ -384,7 +388,7 @@ $$q_{\text{base},t,s} \leq Q_{\text{base},t} \quad \forall t, s$$
 Base scrap usage limited by contract quantity.
 
 6. **Flexible capacity bound**:
-$$\text{Cap}_{\text{flex},t,s} \leq \gamma_{\text{cap}} \cdot \text{Cap}_{\text{base},t} \quad \forall t, s$$
+$$Cap_{flex,t,s} \leq \gamma_{cap} \cdot Cap_{base,t} \quad \forall t, s$$
 Flexible capacity limited as fraction of base capacity.
 
 7. **Spot procurement bound**:
@@ -447,7 +451,7 @@ where $\text{VaR}_{\alpha}$ is the $\alpha$-quantile of the profit distribution.
 To validate model performance, backtesting simulates the execution of first-stage decisions under realized scenarios:
 
 1. **Historical Simulation**: Roll forward through historical data
-2. **Decision Fixing**: Use optimized first-stage decisions $x_{\text{base}}^*, y_{\text{contract}}^*$
+2. **Decision Fixing**: Use optimized first-stage decisions
 3. **Realization**: Observe actual prices and demand
 4. **Second-Stage Adjustment**: Solve for optimal recourse actions given realizations
 5. **Performance Metrics**: Calculate realized profit, tracking error, and decision quality
