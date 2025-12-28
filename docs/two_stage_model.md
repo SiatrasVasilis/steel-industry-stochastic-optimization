@@ -400,8 +400,9 @@ Spot scrap limited as fraction of base contract.
 $$\begin{aligned}
 \max \quad & \sum_{s \in S} p_s \sum_{t \in T} \Big[ P_{t,s} \cdot y_{t,s} - C_{t,s} \cdot (q_{\text{base},t,s} + q_{\text{spot},t,s}) - c_{\text{var}} \cdot x_{t,s} \\
 & \qquad - c_{\text{cap,flex}} \cdot \text{Cap}_{\text{flex},t,s} - \delta_{\text{spot}} \cdot q_{\text{spot},t,s} - \text{pen}_{\text{unmet}} \cdot u_{t,s} \Big] \\
-& \quad - \sum_{t \in T} (c_{\text{cap,base}} \cdot \text{Cap}_{\text{base},t} + \delta_{\text{base}} \cdot Q_{\text{base},t}) \\[1em]
-\text{s.t.} \quad & y_{t,s} + u_{t,s} = D_{t,s}, \quad \forall t, s \\
+& \quad - \sum_{t \in T} (c_{\text{cap,base}} \cdot \text{Cap}_{\text{base},t} + \delta_{\text{base}} \cdot Q_{\text{base},t}) \\
+\text{s.t.} 
+\quad & y_{t,s} + u_{t,s} = D_{t,s}, \quad \forall t, s \\
 & y_{t,s} \leq x_{t,s}, \quad \forall t, s \\
 & x_{t,s} \leq \text{Cap}_{\text{base},t} + \text{Cap}_{\text{flex},t,s}, \quad \forall t, s \\
 & \alpha \cdot x_{t,s} = q_{\text{base},t,s} + q_{\text{spot},t,s}, \quad \forall t, s \\
@@ -452,10 +453,10 @@ where:
 #### Complete Risk-Averse Formulation
 
 $$\begin{aligned}
-\max \quad & (1 - \lambda) \sum_{s \in S} p_s \Pi_s + \lambda \left( \text{VaR} - \frac{1}{\alpha} \sum_{s \in S} p_s z_s \right) \\[0.5em]
-\text{s.t.} \quad & z_s \geq \text{VaR} - \Pi_s, \quad \forall s \\[0.3em]
-& z_s \geq 0, \quad \forall s \\[0.3em]
-& \text{VaR} \text{ free} \\[0.3em]
+\max \quad & (1 - \lambda) \sum_{s \in S} p_s \Pi_s + \lambda \left( \text{VaR} - \frac{1}{\alpha} \sum_{s \in S} p_s z_s \right) \\
+\text{s.t.} \quad & z_s \geq \text{VaR} - \Pi_s, \quad \forall s \\
+& z_s \geq 0, \quad \forall s \\
+& \text{VaR} \text{ free} \\
 & \text{All original constraints}
 \end{aligned}$$
 
