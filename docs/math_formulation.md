@@ -16,9 +16,11 @@ where $P_t$ is the steel selling price index, $C_t$ is the scrap cost index, and
 
 Because commodity price series are non-stationary (they trend and have time-varying variance), all model fitting is performed on **log returns**:
 
-$$r_{i,t} = \log\!\left(\frac{p_{i,t}}{p_{i,t-1}}\right), \quad i \in \{P, C, D\}$$
+$$r_{i,t} = \log\left(\frac{p_{i,t}}{p_{i,t-1}}\right), \quad i \in \{P, C, D\}$$
 
-Let $\mathbf{r}_t = (r_{P,t},\ r_{C,t},\ r_{D,t})^\top$ denote the vector of concurrent log returns.
+The vector of concurrent log returns is:
+
+$$\mathbf{r}_t = (r_{P,t},\ r_{C,t},\ r_{D,t})^\top$$
 
 ---
 
@@ -103,7 +105,7 @@ where $\boldsymbol{\eta}_h^{(\omega)} \stackrel{\text{i.i.d.}}{\sim} \mathcal{D}
 
 **Level reconstruction**: The simulated return paths are converted back to price/quantity levels using the last observed price as the base:
 
-$$\tilde{p}_{i,h}^{(\omega)} = p_{i,\tau} \cdot \exp\!\left(\sum_{j=1}^{h} \tilde{r}_{i,j}^{(\omega)}\right)$$
+$$\tilde{p}_{i,h}^{(\omega)} = p_{i,\tau} \cdot \exp\left(\sum_{j=1}^{h} \tilde{r}_{i,j}^{(\omega)}\right)$$
 
 This ensures all scenario values are in the same units as the business inputs (€/ton, tons/month).
 
@@ -203,7 +205,7 @@ For each scenario $\omega$, a regime path is drawn from the Markov chain and reg
 
 $$\tilde{\mathbf{r}}_h^{(\omega)} = \hat{\boldsymbol{\mu}} + \sum_{\ell=1}^{p} \hat{\mathbf{A}}_\ell\,\tilde{\mathbf{r}}_{h-\ell}^{(\omega)} + \hat{\boldsymbol{\mu}}_{s_h^{(\omega)}} + \mathbf{L}_{s_h^{(\omega)}}\,\boldsymbol{\eta}_h^{(\omega)}$$
 
-where $\mathbf{L}_{s_h} = \text{chol}(\tilde{\boldsymbol{\Sigma}}_{s_h})$ is the Cholesky factor of the regime covariance and $\boldsymbol{\eta}_h^{(\omega)} \stackrel{\text{i.i.d.}}{\sim} \mathcal{D}(\mathbf{0}, \mathbf{I})$.
+where $\boldsymbol{\eta}_h^{(\omega)} \stackrel{\text{i.i.d.}}{\sim} \mathcal{D}(\mathbf{0}, \mathbf{I})$, and $\mathbf{L}_{r}$ denotes the Cholesky factor of regime $r$'s covariance $\tilde{\boldsymbol{\Sigma}}_{r}$.
 
 Level reconstruction follows Section 1.5. The approach produces scenarios with fat-tailed joint distributions, realistic crash episodes, and empirically calibrated regime persistence — without requiring a fully parameterised multivariate MS-VAR.
 
@@ -230,7 +232,7 @@ Level reconstruction follows Section 1.5. The approach produces scenarios with f
 - $\bar{x}_{\text{fix}}(t)$ — maximum fixed contract volume (Tn RM)
 - $\bar{x}_{\text{opt}}(t)$ — maximum framework reservation (Tn RM)
 - $f_{\text{opt}}(t)$ — framework reservation fee (€/Tn reserved)
-- $\text{basis}_{\text{opt}}(t)$, $\text{floor}_{\text{opt}}(t)$, $\text{cap}_{\text{opt}}(t)$ — framework pricing bounds
+- $\text{basis}_{\text{opt}}(t),\ \text{floor}_{\text{opt}}(t),\ \text{cap}_{\text{opt}}(t)$ — framework pricing bounds
 - $\text{Cap}_{\text{base}}(t)$ — base production capacity (Tn FG)
 - $\text{Cap}_{\text{flex}}(t)$ — flexible production capacity (Tn FG)
 - $c_{\text{base}}(t)$ — base production cost (€/Tn FG)
@@ -248,9 +250,9 @@ Level reconstruction follows Section 1.5. The approach produces scenarios with f
 
 The per-scenario exercise price for the framework contract is determined by a bounded pricing rule that prevents the call-off from becoming worse than spot in extreme markets:
 
-$$c_{\text{opt}}(t, \omega) = \min\!\Big(\max\!\big(c_{\text{spot}}(t,\omega) + \text{basis}_{\text{opt}}(t),\ \text{floor}_{\text{opt}}(t)\big),\ \text{cap}_{\text{opt}}(t)\Big)$$
+$$c_{\text{opt}}(t, \omega) = \min\Big(\max\big(c_{\text{spot}}(t,\omega) + \text{basis}_{\text{opt}}(t),\ \text{floor}_{\text{opt}}(t)\big),\ \text{cap}_{\text{opt}}(t)\Big)$$
 
-Setting $\text{floor}_{\text{opt}} = 0$ and $\text{cap}_{\text{opt}} = +\infty$ reduces to pure spot-plus-basis pricing.
+Setting $\text{floor}_{\text{opt}} = 0,\ \text{cap}_{\text{opt}} = +\infty$ reduces to pure spot-plus-basis pricing.
 
 ---
 
@@ -295,7 +297,9 @@ $$\begin{aligned}
   & - h_{\text{rm}}(t)\, I_{\text{rm}}(t,\omega) - h_{\text{fg}}(t)\, I_{\text{fg}}(t,\omega) - \pi(t)\, U(t,\omega) \Bigg]
 \end{aligned}$$
 
-Let $Z(\omega) = \sum_{t} [\cdots]_\omega$ denote the realized profit in scenario $\omega$. Then the objective is $\max \mathbb{E}[Z] = \sum_\omega p_\omega Z(\omega)$.
+Let $Z(\omega) = \sum_{t} (\cdots)_\omega$ denote the realized profit in scenario $\omega$, so the objective is:
+
+$$\max\ \mathbb{E}[Z] = \sum_{\omega} p_\omega Z(\omega)$$
 
 ---
 
@@ -356,17 +360,17 @@ For risk-averse decision makers, the objective is modified to include **Conditio
 
 **Value-at-Risk** at level $\alpha$ is the profit threshold below which the worst $(1-\alpha) \times 100\%$ of scenarios fall:
 
-$$\text{VaR}_\alpha = \inf\!\left\{ z \in \mathbb{R} : \mathbb{P}[Z \leq z] \geq \alpha \right\}$$
+$$\text{VaR}_\alpha = \inf\left\lbrace z \in \mathbb{R} : \mathbb{P}[Z \leq z] \geq \alpha \right\rbrace$$
 
 Note: we work with *profit* ($Z$), not loss, so a *low* profit is the bad outcome. The leftmost $\alpha$-tail of the profit distribution represents the worst cases.
 
 **CVaR** (also called Expected Shortfall) is the expected profit conditional on being in the worst $(1 - \alpha)$ fraction:
 
-$$\text{CVaR}_\alpha = \mathbb{E}\!\left[\, Z \mid Z \leq \text{VaR}_\alpha \,\right]$$
+$$\text{CVaR}_\alpha = \mathbb{E}\left[\, Z \mid Z \leq \text{VaR}_\alpha \,\right]$$
 
 Equivalently, using the Rockafellar-Uryasev representation (which is linear and suitable for optimization):
 
-$$\text{CVaR}_\alpha = \text{VaR}_\alpha - \frac{1}{1-\alpha}\,\mathbb{E}\!\left[\max\!\left(0,\, \text{VaR}_\alpha - Z\right)\right]$$
+$$\text{CVaR}_\alpha = \text{VaR}_\alpha - \frac{1}{1-\alpha}\,\mathbb{E}\left[\max\left(0,\, \text{VaR}_\alpha - Z\right)\right]$$
 
 In the discrete scenario setting this becomes:
 
@@ -476,19 +480,19 @@ The benchmark constructs stage-1 commitments using **static allocation percentag
 
 **Fixed contract volume** — cover a fixed fraction of the expected RM requirement:
 
-$$x_{\text{fix}}(t) = \min\!\Big(\phi_{\text{fix}} \cdot \alpha\, \hat{D}(t),\ \bar{x}_{\text{fix}}(t)\Big)$$
+$$x_{\text{fix}}(t) = \min\Big(\phi_{\text{fix}} \cdot \alpha\, \hat{D}(t),\ \bar{x}_{\text{fix}}(t)\Big)$$
 
 where $\phi_{\text{fix}}$ (`fixed_pct`, default 0.60) is the fraction of expected RM need locked in.
 
 **Framework reservation** — hedge proportion of demand variability:
 
-$$x_{\text{opt}}(t) = \min\!\Big(\phi_{\text{opt}} \cdot \alpha\, \hat{\sigma}_D(t),\ \bar{x}_{\text{opt}}(t)\Big)$$
+$$x_{\text{opt}}(t) = \min\Big(\phi_{\text{opt}} \cdot \alpha\, \hat{\sigma}_D(t),\ \bar{x}_{\text{opt}}(t)\Big)$$
 
 where $\phi_{\text{opt}}$ (`framework_pct`, default 0.25) controls how much demand variance is covered by framework options.
 
 **Base production plan** (level-load mode):
 
-$$P_{\text{base}}(t) = \min\!\left(\bar{D} + \frac{SS_{FG}}{\mathcal{T}},\ \text{Cap}_{\text{base}}(t)\right)$$
+$$P_{\text{base}}(t) = \min\left(\bar{D} + \frac{SS_{FG}}{\mathcal{T}},\ \text{Cap}_{\text{base}}(t)\right)$$
 
 In chase mode $\bar{D}$ is replaced by the period-specific forecast $\hat{D}(t)$.
 
@@ -504,17 +508,17 @@ $$y_{\text{opt}}(t,\omega) = \begin{cases} x_{\text{opt}}(t) & \text{if } c_{\te
 
 **Spot purchases**: Cover any RM shortfall after fixed + framework inflows, plus a gradual safety-stock replenishment:
 
-$$x_{\text{spot}}(t,\omega) = \max\!\Big(0,\, \alpha\,P(t,\omega) - I_{\text{rm}}(t-1,\omega) - x_{\text{fix}}(t) - y_{\text{opt}}(t,\omega)\Big) + 0.5\cdot\max\!\Big(0,\, SS_{RM} - I_{\text{rm}}^{\text{residual}}\Big)$$
+$$x_{\text{spot}}(t,\omega) = \max\Big(0,\, \alpha\,P(t,\omega) - I_{\text{rm}}(t-1,\omega) - x_{\text{fix}}(t) - y_{\text{opt}}(t,\omega)\Big) + 0.5\cdot\max\Big(0,\, SS_{RM} - I_{\text{rm}}^{\text{residual}}\Big)$$
 
 **Flexible production**: Activated to close demand gaps and partially rebuild FG buffer:
 
-$$P_{\text{flex}}(t,\omega) = \min\!\Big(\max\!\big(0,\, D(t,\omega) - I_{\text{fg}}(t-1,\omega) - P_{\text{base}}(t)\big) + 0.3\cdot\delta_{FG}(t,\omega),\ \text{Cap}_{\text{flex}}(t)\Big)$$
+$$P_{\text{flex}}(t,\omega) = \min\Big(\max\big(0,\, D(t,\omega) - I_{\text{fg}}(t-1,\omega) - P_{\text{base}}(t)\big) + 0.3\cdot\delta_{FG}(t,\omega),\ \text{Cap}_{\text{flex}}(t)\Big)$$
 
 where $\delta_{FG}(t,\omega) = \max(0,\, SS_{FG} - I_{\text{fg}}^{\text{residual}})$ is the FG buffer shortfall.
 
 **Sales and unmet demand** follow the same accounting as the stochastic model:
 
-$$S(t,\omega) = \min\!\big(D(t,\omega),\, I_{\text{fg}}(t-1,\omega) + P_{\text{base}}(t) + P_{\text{flex}}(t,\omega)\big)$$
+$$S(t,\omega) = \min\big(D(t,\omega),\, I_{\text{fg}}(t-1,\omega) + P_{\text{base}}(t) + P_{\text{flex}}(t,\omega)\big)$$
 
 $$U(t,\omega) = D(t,\omega) - S(t,\omega)$$
 
@@ -524,9 +528,9 @@ The profit in each scenario $\omega$ is then computed using the same cost functi
 
 ### 3.5 Value of Stochastic Solution
 
-Let $Z^*(\omega)$ denote the profit of the stochastic optimizer in scenario $\omega$ and $Z^{SS}(\omega)$ the profit of the safety stock benchmark in the same scenario. The VSS quantifies the benefit of replacing rule-based planning with explicit scenario optimization:
+Let $Z^{\ast}(\omega)$ denote the profit of the stochastic optimizer in scenario $\omega$ and $Z^{SS}(\omega)$ the profit of the safety stock benchmark in the same scenario. The VSS quantifies the benefit of replacing rule-based planning with explicit scenario optimization:
 
-$$\text{VSS} = \sum_{\omega \in \Omega} p_\omega Z^*(\omega) - \sum_{\omega \in \Omega} p_\omega Z^{SS}(\omega) = \mathbb{E}[Z^*] - \mathbb{E}[Z^{SS}]$$
+$$\text{VSS} = \sum_{\omega \in \Omega} p_\omega Z^{\ast}(\omega) - \sum_{\omega \in \Omega} p_\omega Z^{SS}(\omega) = \mathbb{E}[Z^{\ast}] - \mathbb{E}[Z^{SS}]$$
 
 Because both models are evaluated on the **same scenario set**, the VSS isolates the pure informational value of scenario awareness; differences in computational effort or data requirements do not affect the comparison.
 
