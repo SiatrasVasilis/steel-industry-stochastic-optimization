@@ -37,6 +37,7 @@ where:
 The model is estimated by ordinary least squares (OLS) equation by equation (equivalent to GLS for a VAR with the same regressors). The coefficient matrices and covariance are recovered from standard multivariate regression:
 
 $$\hat{\mathbf{B}} = (\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{X}^\top \mathbf{Y}$$
+
 $$\hat{\boldsymbol{\Sigma}} = \frac{1}{T - kp - 1}(\mathbf{Y} - \mathbf{X}\hat{\mathbf{B}})^\top(\mathbf{Y} - \mathbf{X}\hat{\mathbf{B}})$$
 
 where $\mathbf{Y}$ stacks the return vectors and $\mathbf{X}$ stacks the lagged regressor blocks.
@@ -98,7 +99,7 @@ $$\hat{\mathbf{r}}_{\tau-p+1}, \ldots, \hat{\mathbf{r}}_\tau \quad \text{(from t
 
 $$\tilde{\mathbf{r}}_h^{(\omega)} = \hat{\boldsymbol{\mu}} + \sum_{\ell=1}^{p} \hat{\mathbf{A}}_\ell\, \tilde{\mathbf{r}}_{h-\ell}^{(\omega)} + \mathbf{L}\, \boldsymbol{\eta}_h^{(\omega)}$$
 
-where $\boldsymbol{\eta}_h^{(\omega)} \overset{\text{i.i.d.}}{\sim} \mathcal{D}(\mathbf{0}, \mathbf{I})$ are freshly drawn innovations.
+where $\boldsymbol{\eta}_h^{(\omega)} \stackrel{\text{i.i.d.}}{\sim} \mathcal{D}(\mathbf{0}, \mathbf{I})$ are freshly drawn innovations.
 
 **Level reconstruction**: The simulated return paths are converted back to price/quantity levels using the last observed price as the base:
 
@@ -202,7 +203,7 @@ For each scenario $\omega$, a regime path is drawn from the Markov chain and reg
 
 $$\tilde{\mathbf{r}}_h^{(\omega)} = \hat{\boldsymbol{\mu}} + \sum_{\ell=1}^{p} \hat{\mathbf{A}}_\ell\,\tilde{\mathbf{r}}_{h-\ell}^{(\omega)} + \hat{\boldsymbol{\mu}}_{s_h^{(\omega)}} + \mathbf{L}_{s_h^{(\omega)}}\,\boldsymbol{\eta}_h^{(\omega)}$$
 
-where $\mathbf{L}_{s_h} = \text{chol}(\tilde{\boldsymbol{\Sigma}}_{s_h})$ is the Cholesky factor of the regime covariance and $\boldsymbol{\eta}_h^{(\omega)} \overset{\text{i.i.d.}}{\sim} \mathcal{D}(\mathbf{0}, \mathbf{I})$.
+where $\mathbf{L}_{s_h} = \text{chol}(\tilde{\boldsymbol{\Sigma}}_{s_h})$ is the Cholesky factor of the regime covariance and $\boldsymbol{\eta}_h^{(\omega)} \stackrel{\text{i.i.d.}}{\sim} \mathcal{D}(\mathbf{0}, \mathbf{I})$.
 
 Level reconstruction follows Section 1.5. The approach produces scenarios with fat-tailed joint distributions, realistic crash episodes, and empirically calibrated regime persistence — without requiring a fully parameterised multivariate MS-VAR.
 
@@ -285,15 +286,14 @@ $$P(t, \omega) = P_{\text{base}}(t) + P_{\text{flex}}(t, \omega)$$
 
 The primary objective is to **maximize expected profit** across all scenarios:
 
-$$\begin{split}
-\max \sum_{\omega \in \Omega} p_\omega \sum_{t \in T} \Bigg[
-  &\phantom{{}+{}} p_{\text{sell}}(t,\omega)\, S(t,\omega) \\
-  &- c_{\text{fix}}(t)\, x_{\text{fix}}(t) - f_{\text{opt}}(t)\, x_{\text{opt}}(t) \\
-  &- c_{\text{opt}}(t,\omega)\, y_{\text{opt}}(t,\omega) - c_{\text{spot}}(t,\omega)\, x_{\text{spot}}(t,\omega) \\
-  &- c_{\text{base}}(t)\, P_{\text{base}}(t) - c_{\text{flex}}(t)\, P_{\text{flex}}(t,\omega) \\
-  &- h_{\text{rm}}(t)\, I_{\text{rm}}(t,\omega) - h_{\text{fg}}(t)\, I_{\text{fg}}(t,\omega) - \pi(t)\, U(t,\omega)
-\Bigg]
-\end{split}$$
+$$\begin{aligned}
+\max \quad & \sum_{\omega \in \Omega} p_\omega \sum_{t \in T} \Bigg[ \\
+  & \quad p_{\text{sell}}(t,\omega)\, S(t,\omega) \\
+  & - c_{\text{fix}}(t)\, x_{\text{fix}}(t) - f_{\text{opt}}(t)\, x_{\text{opt}}(t) \\
+  & - c_{\text{opt}}(t,\omega)\, y_{\text{opt}}(t,\omega) - c_{\text{spot}}(t,\omega)\, x_{\text{spot}}(t,\omega) \\
+  & - c_{\text{base}}(t)\, P_{\text{base}}(t) - c_{\text{flex}}(t)\, P_{\text{flex}}(t,\omega) \\
+  & - h_{\text{rm}}(t)\, I_{\text{rm}}(t,\omega) - h_{\text{fg}}(t)\, I_{\text{fg}}(t,\omega) - \pi(t)\, U(t,\omega) \Bigg]
+\end{aligned}$$
 
 Let $Z(\omega) = \sum_{t} [\cdots]_\omega$ denote the realized profit in scenario $\omega$. Then the objective is $\max \mathbb{E}[Z] = \sum_\omega p_\omega Z(\omega)$.
 
