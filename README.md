@@ -1,324 +1,248 @@
-# Steel Industry Stochastic Optimization
+<div align="center">
 
-A collection of scenario-based stochastic programming models tailored for steel industry capacity planning and procurement optimization under market uncertainty. All models are backtested using real historical market data.
+# Steel Industry Stochastic Procurement Optimization
 
-## 📋 Overview
+**Scenario-driven procurement and capacity planning for steel manufacturing — find the optimal balance between commitment and flexibility under genuine market uncertainty.**
 
-This repository provides stochastic optimization frameworks for steel industry decision-making under uncertainty. The models leverage Vector Autoregression (VAR) for scenario generation and two-stage stochastic programming to balance upfront commitments with operational flexibility.
+[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/) &ensp; [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) &ensp; [![Solver: HiGHS](https://img.shields.io/badge/solver-HiGHS-orange.svg)](https://highs.dev/)
 
-## 🎯 Business Problem
-
-### The Challenge
-
-Steel manufacturers face a critical planning dilemma: **How much production capacity should we commit to, and how much raw material should we secure, when we don't know what demand, prices, or costs will be 12-24 months from now?**
-
-### Why This Matters
-
-Making the wrong decisions can be extremely costly:
-
-- **Over-commitment**: Building too much capacity or contracting excessive raw materials means paying high fixed costs that can't be recovered if demand drops or prices fall. Example: A €10M/year capacity commitment that sits idle costs the full €10M regardless of utilization.
-
-- **Under-commitment**: Insufficient capacity or material contracts force reliance on expensive last-minute options when opportunities arise. Example: Missing a high-price demand surge because you can't access spot materials or emergency capacity at reasonable costs.
-
-The problem is complicated because three key factors are uncertain and move together:
-1. **Steel selling prices** - What revenue will we get per ton?
-2. **Scrap material costs** - What will raw materials cost?
-3. **Customer demand** - How much will customers buy?
-
-### Current Practice vs. Optimization Approach
-
-**Traditional approaches** rely on:
-- Single-point forecasts ("demand will be 50,000 tons/month")
-- Safety margins (add 20% buffer capacity)
-- Historical averages
-- Gut feeling and past experience
-
-**Problems**: Ignores correlations, doesn't quantify risk, can't evaluate trade-offs systematically.
-
-**This optimization framework** provides:
-- **Scenario-based planning**: Evaluates thousands of possible future outcomes
-- **Risk-aware decisions**: Balances expected profit against downside protection
-- **Quantified trade-offs**: Shows exactly how much flexibility costs vs. how much risk it reduces
-- **Data-driven**: Uses 30+ years of historical market data and econometric forecasting
-
-### The Two-Stage Decision Structure
-
-**Today (Stage 1)** - Make strategic commitments:
-- Set base production capacity for each month (e.g., 45,000 tons/month)
-- Sign procurement contracts giving rights (but not obligations) to buy scrap materials
-
-**Later (Stage 2)** - Adapt to reality as it unfolds:
-- Use flexible capacity if demand is higher than expected (extra shifts, temporary workers)
-- Buy additional materials on spot markets if needed
-- Adjust production levels based on realized prices and demand
-
-### What You Get
-
-The optimization model tells you:
-1. **Optimal base capacity** for each period balancing fixed costs against expected demand
-2. **Optimal procurement contracts** providing material security without over-commitment  
-3. **Expected profit** and profit distribution (mean, standard deviation, worst-case scenarios)
-4. **Break-even analysis** showing when flexibility pays off vs. when commitment is better
-5. **Risk metrics** quantifying exposure to adverse market conditions
-
-### Real Business Impact
-
-Example results:
-- **15-25% profit improvement** over rule-of-thumb approaches
-- **30-40% reduction in downside risk** (worst-case scenario losses)
-- **Clear investment justification**: Shows ROI for capacity vs. flexibility investments
-- **Stress testing capability**: "What happens if demand drops 20% and scrap costs spike 30%?"
-
-This isn't theoretical—the models are backtested on 10+ years of actual market data showing how decisions would have performed in real conditions including the 2008 crisis, 2020 pandemic, and recent commodity volatility.
-
-## 📚 Available Models
-
-### 1. Two-Stage Capacity and Procurement Planning
-
-**Status**: ✅ Implemented  
-**Documentation**: [docs/two_stage_model.md](docs/two_stage_model.md)  
-**Implementation**: [src/models/basic.py](src/models/basic.py)  
-**Example Notebook**: [notebooks/basic_usage.ipynb](notebooks/basic_usage.ipynb) - Backtested on 2020 COVID crisis with FRED index data for Prices and Demand and realistic cost parameters.
-
-A two-stage stochastic programming model for optimizing capacity expansion and raw material procurement decisions under uncertainty.
-
-**Key Features**:
-- **Stage 1 (Strategic)**: Base capacity planning and procurement contracts set upfront
-- **Stage 2 (Operational)**: Flexible capacity and spot procurement as recourse actions
-- **Scenario Generation**: VAR-based scenarios capturing correlations between prices, costs, and demand
-- **Scenario Reduction**: K-medoids clustering with stress scenarios for computational efficiency
-- **Backtesting**: Historical validation of optimization decisions against realized market outcomes
-
-**Decision Variables**:
-- Base capacity commitment (tons/month)
-- Base scrap procurement contracts (call options)
-- Flexible capacity usage (recourse)
-- Spot market procurement (recourse)
-- Production and sales volumes (recourse)
-
-**Typical Planning Horizon**: 12-24 months
-
-**Applications**:
-- Annual capacity planning and budget allocation
-- Raw material contract negotiations
-- Risk assessment and stress testing
-- Scenario analysis for strategic planning
-
-**Limitations**:
-- **Single Recourse Point**: Stage 2 decisions assume full knowledge of uncertainties when they resolve, whereas real decisions often require adjustments with partial information
-- **Computational vs. Flexibility Trade-off**: Multi-stage models with intermediate decision points would better represent rolling planning horizons but at significantly higher computational cost
-- **Best suited for**: Strategic planning with clear commitment deadlines (e.g., annual capacity contracts) rather than continuous operational adjustments
+</div>
 
 ---
 
-## 🚀 Getting Started
+## 🎯 The Problem
 
-### Installation
+Steel manufacturers commit to production capacity and raw material contracts **months before knowing what demand, prices, or costs will be**. Traditional ERP planning relies on point forecasts and safety stock buffers — ignoring correlations, failing to quantify risk, and leaving money on the table in every market regime.
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/steel-industry-stochastic-optimization.git
-cd steel-industry-stochastic-optimization
+This framework replaces that with a **scenario-aware optimizer** that evaluates thousands of plausible futures and finds the plan that maximizes expected profit while explicitly protecting against downside risk.
+
+---
+
+## ❓ What Questions It Answers
+
+> ###### *"How much base capacity should I commit to — and when should I use overtime?"*
+> <sub>Optimal monthly split between base capacity and flexible production (overtime, subcontracting) across thousands of demand scenarios.</sub>
+
+> ###### *"How should I balance fixed contracts, option call-offs, and spot purchases?"*
+> <sub>Cost-optimal allocation across all three procurement instruments — committed volume, reserved-but-optional volume, and market-rate fallback — for the current price environment.</sub>
+
+> ###### *"What is the real cost of playing it safe?"*
+> <sub>Quantified profit–risk trade-off: see exactly how much expected profit you give up for each increment of downside protection.</sub>
+
+> ###### *"How would this plan have held up in 2008… or COVID… or the 2022 price spike?"*
+> <sub>Rolling backtest across 17 windows spanning 16 years — every crisis, every recovery, every supply shock from 2007 to 2023.</sub>
+
+> ###### *"What if scrap spikes 30% and demand drops 20% at the same time?"*
+> <sub>Analyst-defined stress scenarios are injected directly into the optimization — the plan is guaranteed to have seen them.</sub>
+
+> ###### *"Is this actually better than what we do today?"*
+> <sub>Measured head-to-head: the Value of Stochastic Solution (VSS) quantifies the profit improvement over traditional safety-stock planning in every regime tested.</sub>
+
+---
+
+## ⚙️ How It Works
+
+```mermaid
+graph LR
+    A["📊 <b>FRED Market Data</b><br/>20+ years of steel prices,<br/>scrap costs & demand"] --> B["🔧 <b>DataLoader</b><br/>Clean, align,<br/>log-returns"]
+    B --> C["📈 <b>Regime-Switching VAR</b><br/>Fit normal + stress<br/>regime dynamics"]
+    C --> D["🎲 <b>Scenario Generation</b><br/>3 000 correlated<br/>forward paths"]
+    D --> E["✂️ <b>Scenario Reduction</b><br/>K-medoids → 300<br/>+ stress tails"]
+    E --> F["⚙️ <b>Stochastic Optimizer</b><br/>Two-stage program<br/>with CVaR"]
+    F --> G["📋 <b>Optimal Plan</b><br/>Capacity, contracts,<br/>risk metrics"]
+
+    style A fill:#4472C4,stroke:#2F5597,color:#fff
+    style B fill:#5B9BD5,stroke:#4472C4,color:#fff
+    style C fill:#70AD47,stroke:#548235,color:#fff
+    style D fill:#70AD47,stroke:#548235,color:#fff
+    style E fill:#FFC000,stroke:#BF9000,color:#000
+    style F fill:#ED7D31,stroke:#C55A11,color:#fff
+    style G fill:#7030A0,stroke:#4E2074,color:#fff
 ```
 
-2. Install dependencies:
+**Stage 1 (commit now):** Base production capacity · Fixed procurement contracts · Framework option reservations  
+**Stage 2 (adapt later):** Framework exercise · Spot purchases · Flex production · Inventory management
+
+---
+
+## 📊 Results at a Glance
+
+Backtested across 17 rolling windows from 2007 to 2023 — including the GFC crash, Euro debt crisis, COVID-19 demand shock, and post-COVID supply spike:
+
+![Executive Dashboard](assets/executive_dashboard.png)
+
+| Metric | Stochastic Optimizer | Safety Stock Benchmark |
+|--------|:-------------------:|:---------------------:|
+| Total profit (16-year backtest) | **+€182M above benchmark** | Baseline (€3,135M) |
+| Profit uplift | **+5.8%** (Risk Neutral, λ=0.0) | — |
+| Planning windows outperformed | **14 / 17** (82%, Risk Neutral) | — |
+| Fill rate | ≥ 97% | 85–95% |
+| Worst-case profit (CVaR 5%) | Materially better | Fragile in crises |
+| Shortage events | Near-zero | Common in volatile periods |
+
+**Risk profile comparison** (all vs. Safety Stock benchmark):
+
+| Profile | λ | VSS | Uplift | Windows won |
+|---------|---|-----|--------|-------------|
+| Risk Neutral | 0.0 | +€182M | +5.8% | 14/17 |
+| Moderate | 0.3 | +€156M | +5.0% | 13/17 |
+| Conservative | 0.7 | +€163M | +5.2% | 13/17 |
+| Full CVaR | 1.0 | +€168M | +5.3% | 12/17 |
+
+> Risk Neutral wins both the most windows (14/17) and the highest total profit in this backtest — expected-profit maximization dominates when the scenario model captures regime structure well. Higher λ profiles trade some total upside for reduced tail exposure; Full CVaR wins fewer windows but outperforms by larger margins during volatile regimes (2008, COVID, post-COVID spike). The λ parameter is a strategic choice, not a calibration: the right answer depends on your market view and balance sheet tolerance for tail risk.
+
+---
+
+## 🔧 Key Features
+
+<table>
+<tr>
+<td width="50%">
+
+**Risk-Aversion Control**
+
+A single parameter shifts the objective from pure expected-profit maximization to explicit downside protection:
+
+![Aggressive](https://img.shields.io/badge/0%25-Aggressive-2ea44f?style=for-the-badge) &nbsp;
+<sub>Maximize expected profit, no tail-risk penalty</sub>
+
+![Balanced](https://img.shields.io/badge/30%25-Balanced-f0ad4e?style=for-the-badge) &nbsp;
+<sub>Hedge against worst outcomes while preserving upside</sub>
+
+![Conservative](https://img.shields.io/badge/50%25%2B-Conservative-d9534f?style=for-the-badge) &nbsp;
+<sub>Prioritize protecting worst-case profit via CVaR</sub>
+
+</td>
+<td width="50%">
+
+**Stress Testing**
+
+Inject analyst-defined extreme scenarios directly into the optimization so the plan is *guaranteed* to have seen them:
+
+> *"What if selling prices drop to the 5th percentile while scrap costs spike to the 95th?"*
+
+Covers price collapses, cost spikes, demand crashes — and any combination of the three.
+
+</td>
+</tr>
+<tr>
+<td>
+
+**Three Contract Instruments**
+
+- **Fixed contracts** — committed volume at known price
+- **Framework call-offs** — right but not obligation, bounded exercise price
+- **Spot purchases** — unlimited, market-rate fallback
+
+</td>
+<td>
+
+**16-Year Rolling Backtest**
+
+17 autonomous replanning windows across real market history:
+
+> *GFC Crash · Euro Debt Crisis · Post-GFC Stagnation · Recovery · COVID-19 · Post-COVID Supply Spike*
+
+Every regime tests a different failure mode for traditional planning.
+
+</td>
+</tr>
+</table>
+
+---
+
+## 👤 Who Is This For
+
+- **Supply chain leaders** evaluating optimization-based planning vs. traditional ERP/MRP approaches
+- **Procurement managers** looking to quantify the value of contract flexibility under price uncertainty
+- **Operations research practitioners** seeking a production-ready two-stage stochastic programming implementation with real data
+- **Data scientists & quants** interested in VAR-based scenario generation with stress testing for commodity markets
+
+---
+
+## 🚀 Quick Start
+
 ```bash
 pip install -r requirements.txt
 ```
 
-**⚠️ Troubleshooting Note**: The `scikit-learn-extra` package (used for K-medoids clustering) requires C++ build tools for compilation. If installation fails:
-
-**Windows users**:
-- Install [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
-- Or install [Visual Studio](https://visualstudio.microsoft.com/downloads/) with "Desktop development with C++" workload
-
-**Linux users**:
-```bash
-sudo apt-get install build-essential  # Debian/Ubuntu
-sudo yum groupinstall "Development Tools"  # CentOS/RHEL
-```
-
-**macOS users**:
-```bash
-xcode-select --install
-```
-
-Alternatively, use a pre-built wheel or conda:
-```bash
-conda install -c conda-forge scikit-learn-extra
-```
-
-### Quick Example
-
 ```python
-from src.models.basic import TwoStageCapacityAndProcurementPlanning
+from src.data.loader import DataLoader
+from src.scenario.regime_switching import RegimeSwitchingGenerator
+from src.optimization.stochastic import StochasticOptimizationModel, ModelParameters
+from src.params.risk import RiskProfile
 
-# 1. Load historical data from FRED
-data = TwoStageCapacityAndProcurementPlanning.load_data_from_fredapi(
-    api_key='your_api_key_here',
-    plot_data=True
+# 1. Load 15 years of FRED market data
+loader = DataLoader(fred_api_key="your_key")
+loader.load_from_fred().subset(180, last_observation="2019-12-01")
+loader.convert_to_real_prices("2019-12-01", {"P": 520, "C": 130, "D": 50000})
+loader.compute_log_returns()
+
+# 2. Fit Regime-Switching VAR → generate 3,000 scenarios → reduce to 300
+gen = RegimeSwitchingGenerator(n_regimes=2)  # normal + stress regimes
+gen.fit(loader)
+print(gen.regime_summary())                  # inspect regime structure
+reduced = gen.reduce(gen.generate(n_scenarios=3000, horizon=12), n_clusters=300)
+
+# 3. Solve
+result = StochasticOptimizationModel().run(
+    reduced.scenarios, reduced.probabilities,
+    params=ModelParameters(c_fix=320, x_fix_max=8000, x_opt_max=4000, alpha=1.2, pen_short=500),
+    risk_profile=RiskProfile(risk_aversion=0.3),
+    variable_mapping={"C": "c_spot", "P": "p_sell"},
 )
 
-# 2. Create data subset for modeling
-data_subset = TwoStageCapacityAndProcurementPlanning.get_n_observations(
-    data,
-    n=180,
-    p=2,
-    last_observation='2019-12-01',
-    plot_data=True
-)
-
-# 3. Fit VAR model
-var_model = TwoStageCapacityAndProcurementPlanning.fit_VAR_model(
-    data=data_subset,
-    p=None,  # Automatic lag order selection
-    testing=['stability', 'corr'],
-    method='bic'
-)
-
-# 4. Generate scenarios
-scenario_returns, prob = TwoStageCapacityAndProcurementPlanning.generate_future_returns_scenarios(
-    var_model=var_model,
-    simulation_start_date=data_subset.index.max().strftime('%Y-%m'),
-    horizon=24,
-    n_scenarios=1000,
-    seed=42,
-    shock_distribution='t',
-    distribution_params={'df': 7}
-)
-
-# 5. Convert to price/quantity levels
-real_prices = {'P': 800, 'C': 400, 'D': 50000}  # €/ton for P,C and tons/month for D
-scenario_levels, info = TwoStageCapacityAndProcurementPlanning.reconstruct_levels_from_returns(
-    scenario_returns=scenario_returns,
-    historical_data=data_subset,
-    real_prices=real_prices
-)
-
-# 6. Reduce scenarios using K-medoids clustering
-scenarios_red, prob_red = TwoStageCapacityAndProcurementPlanning.reduce_scenarios_kmedoids(
-    scenarios=scenario_levels,
-    prob=prob,
-    n_scenario_clusters=50,
-    stress_pct=0.01,
-    stress_direction='downside'
-)
-
-# 7. Optimize capacity and procurement
-decisions = TwoStageCapacityAndProcurementPlanning.optimize_capacity_and_procurement(
-    scenarios=scenarios_red,
-    prob=prob_red,
-    alpha=1.01,           # Scrap consumption rate
-    c_var=250.0,          # Variable production cost (€/ton)
-    c_cap_base=10.0,      # Base capacity cost (€/ton/month)
-    c_cap_flex=30.0,      # Flexible capacity cost (€/ton/month)
-    delta_base=5.0,       # Base procurement premium (€/ton)
-    delta_spot=15.0,      # Spot procurement premium (€/ton)
-    pen_unmet=0.0,        # Unmet demand penalty (€/ton)
-    gamma_cap=0.3,        # Max flexible capacity (fraction of base)
-    gamma_scrap=0.8,      # Max spot procurement (fraction of base)
-    solver="highs"
-)
-
-print("Optimal Decisions:")
-print(decisions)
+print(f"E[Profit]  EUR {result.risk_metrics['Expected_Profit']:>12,.0f}")
+print(f"CVaR (5%)  EUR {result.risk_metrics['CVaR_95']:>12,.0f}")
+print(f"Sharpe         {result.risk_metrics['Sharpe']:>12.3f}")
 ```
 
-For detailed documentation and advanced usage, see [docs/two_stage_model.md](docs/two_stage_model.md).
+<details>
+<summary><b>Installation notes</b></summary>
+
+- A free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html) is required for data loading.
+- **Windows**: `scikit-learn-extra` (K-medoids) needs C++ build tools — install [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) or `conda install -c conda-forge scikit-learn-extra`.
+
+</details>
+
+---
+
+## ⚠️ Limitations
+
+- **Two stages, not rolling** — Stage 2 assumes full uncertainty resolution at once. Real planning involves continuous rebalancing with partial information. Multi-stage extensions would improve realism at significant computational cost.
+- **Single product** — The current model handles one aggregate steel product. Multi-product extensions (e.g., flat vs. long products) are not yet supported.
+- **No supply disruption modeling** — Scenarios capture price and demand uncertainty but not discrete supply chain disruptions (plant outages, port closures, trade sanctions).
+- **Solver dependency** — Requires a linear programming solver. HiGHS (open-source, default) is sufficient; commercial solvers (Gurobi, CPLEX) are supported but not required.
+- **Monthly granularity only** — the data pipeline, scenario generator, and optimization model all operate at monthly frequency. Sub-monthly or weekly planning horizons would require a redesigned data layer.
 
 ---
 
 ## 📖 Documentation
 
-### Model Documentation
-- **[Two-Stage Model](docs/two_stage_model.md)**: Complete documentation including problem formulation, mathematical model, VAR forecasting, scenario generation, and usage examples
-
-### Key Sections
-1. **Problem Formulation**: Business context and decision timeline
-2. **Model Description**: VAR modeling, scenario generation, and stochastic program formulation
-3. **Usage Guide**: Comprehensive method reference with examples
-
----
-
-## 🗂️ Repository Structure
-
-```
-steel-industry-stochastic-optimization/
-├── src/
-│   ├── models/
-│   │   └── basic.py              # Two-stage model implementation
-│   └── utils/                     # Shared utilities (future)
-├── data/                          # Input data (not tracked in git)
-├── results/                       # Optimization results and plots
-├── notebooks/                     # Jupyter notebooks for experiments
-├── tests/                         # Unit tests (future)
-├── docs/
-│   └── two_stage_model.md        # Two-stage model documentation
-├── requirements.txt               # Python dependencies
-├── LICENSE
-└── README.md
-```
-
----
-
-## 🔧 Requirements
-
-- Python 3.8+
-- Key dependencies:
-  - `pyomo` - Optimization modeling
-  - `pandas` - Data manipulation
-  - `numpy` - Numerical computations
-  - `statsmodels` - VAR modeling
-  - `scikit-learn` - Scenario reduction (K-medoids)
-  - `fredapi` - Data retrieval from FRED
-  - `matplotlib` - Visualization
-
-See [requirements.txt](requirements.txt) for complete list.
+| Document | Contents |
+|----------|----------|
+| [Problem Formulation](docs/problem_formulation.md) | Business context, contract types, production structure, why two-stage |
+| [Mathematical Formulation](docs/math_formulation.md) | VAR model, scenario generation, stochastic program, CVaR, benchmark math |
+| [Package Documentation](docs/package_documentation.md) | Full API reference with usage examples for every class and method |
 
 ---
 
 ## 📊 Data Sources
 
-The models use publicly available economic data from the Federal Reserve Economic Data (FRED) database:
+All inputs are public data from the [Federal Reserve Economic Data (FRED)](https://fred.stlouisfed.org/) API:
 
-- **Steel Prices**: Producer Price Index for steel products (WPU101704)
-- **Scrap Costs**: Producer Price Index for scrap metal (WPU1012)
-- **Steel Demand**: Industrial production index for steel (IPG3311A2S)
-
-**Note**: You need a free FRED API key. [Get one here](https://fred.stlouisfed.org/docs/api/api_key.html).
-
----
-
-## 🔮 Future Models (Roadmap)
-
-- **Multi-Stage Model**: Extended planning with more decision stages
-- **Risk-Averse Formulations**: CVaR and robust optimization variants
-- **Multi-Product Planning**: Models for diversified product portfolios
-- **Inventory Management**: Models with finished goods storage
-- **Network Optimization**: Multi-facility capacity planning
+| Variable | Series | Description |
+|----------|--------|-------------|
+| Steel price | `WPU101704` | PPI: Hot Rolled Bars, Plates & Structural Shapes |
+| Scrap cost | `WPU1012` | PPI: Iron and Steel Scrap |
+| Demand | `IPG3311A2S` | Industrial Production: Steel Products |
 
 ---
 
-## 📝 License
+<div align="center">
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+**MIT License** — see [LICENSE](LICENSE)
 
----
+Birge & Louveaux (2011) · Lütkepohl (2005) · Rockafellar & Uryasev (2000)
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit issues or pull requests.
-
----
-
-## 📧 Contact
-
-For questions or collaboration opportunities, please open an issue or contact the repository maintainer.
-
----
-
-## 🎓 References
-
-- Birge, J.R. & Louveaux, F. (2011). *Introduction to Stochastic Programming*. Springer.
-- Shapiro, A., Dentcheva, D., & Ruszczyński, A. (2009). *Lectures on Stochastic Programming*. SIAM.
-- Kall, P. & Wallace, S.W. (1994). *Stochastic Programming*. Wiley.
+</div>
